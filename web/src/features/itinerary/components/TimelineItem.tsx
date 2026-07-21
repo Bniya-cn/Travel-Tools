@@ -13,16 +13,19 @@ export function TimelineItem({ item, onDelete, onFocusPlace, deleting }: Props) 
     ? '全天'
     : `${formatTimeLabel(item.start_time)} – ${formatTimeLabel(item.end_time)}`;
   const placeName = item.place?.name;
+  const isTransport = item.kind === 'transport';
 
   return (
-    <article className="md-card timeline-item">
+    <article className={isTransport ? 'md-card timeline-item timeline-item--transport' : 'md-card timeline-item'}>
       <div className="timeline-item__time">{timeText}</div>
       <div className="timeline-item__body">
+        <p className="timeline-item__kind">{isTransport ? '交通' : categoryLabel(item.category)}</p>
         <h3 className="timeline-item__title">{item.title}</h3>
-        <p className="timeline-item__meta">
-          {categoryLabel(item.category)}
-          {item.description ? ` · ${item.description}` : ''}
-        </p>
+        {!isTransport && (
+          <p className="timeline-item__meta">
+            {item.description ? item.description : ''}
+          </p>
+        )}
         {placeName && (
           <button
             type="button"

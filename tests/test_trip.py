@@ -14,8 +14,7 @@ def test_create_trip_success(client) -> None:
         json={
             "name": "西安五日游",
             "city_name": "西安",
-            "city_code": "029",
-            "timezone": "Asia/Shanghai",
+                        "timezone": "Asia/Shanghai",
             "start_date": "2026-10-01",
             "end_date": "2026-10-05",
         },

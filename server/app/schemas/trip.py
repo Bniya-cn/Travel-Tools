@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class TripCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     city_name: str = Field(min_length=1, max_length=100)
-    city_code: str | None = Field(default=None, max_length=20)
     timezone: str = Field(default="Asia/Shanghai", max_length=50)
     start_date: date
     end_date: date
@@ -26,7 +25,6 @@ class TripCreate(BaseModel):
 class TripUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     city_name: str | None = Field(default=None, min_length=1, max_length=100)
-    city_code: str | None = Field(default=None, max_length=20)
     timezone: str | None = Field(default=None, max_length=50)
     start_date: date | None = None
     end_date: date | None = None
@@ -39,7 +37,6 @@ class TripResponse(BaseModel):
     id: str
     name: str
     city_name: str
-    city_code: str | None
     timezone: str
     start_date: date
     end_date: date

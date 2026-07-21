@@ -10,6 +10,7 @@ interface Props {
   selectedDate: string;
   places: Place[];
   pendingPlaceId?: string | null;
+  titlePlaceholder?: string;
   onSubmit: (payload: ItemCreateInput) => Promise<void>;
   submitting?: boolean;
 }
@@ -28,6 +29,7 @@ export function ItemForm({
   selectedDate,
   places,
   pendingPlaceId,
+  titlePlaceholder = '例如：热门景点',
   onSubmit,
   submitting,
 }: Props) {
@@ -111,7 +113,11 @@ export function ItemForm({
 
       <label className="md-field">
         <span>标题</span>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：西安城墙" />
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={titlePlaceholder}
+        />
       </label>
 
       <label className="md-field">

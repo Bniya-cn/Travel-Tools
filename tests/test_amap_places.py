@@ -55,7 +55,7 @@ async def test_search_normal(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json=payload)
 
     _patch_client(monkeypatch, handler)
-    results = await amap_places.search_places(keyword="博物馆", city_code="029")
+    results = await amap_places.search_places(keyword="博物馆", city="西安")
     assert len(results) == 1
     assert results[0].name == "陕西历史博物馆"
     assert results[0].lng == 108.9599
@@ -67,7 +67,7 @@ async def test_search_empty(monkeypatch: pytest.MonkeyPatch) -> None:
         return httpx.Response(200, json={"status": "1", "pois": []})
 
     _patch_client(monkeypatch, handler)
-    results = await amap_places.search_places(keyword="xxx", city_code="029")
+    results = await amap_places.search_places(keyword="xxx", city="西安")
     assert results == []
 
 
@@ -81,7 +81,7 @@ async def test_status_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
     _patch_client(monkeypatch, handler)
     with pytest.raises(AppError) as exc:
-        await amap_places.search_places(keyword="博物馆", city_code="029")
+        await amap_places.search_places(keyword="博物馆", city="西安")
     assert exc.value.code == ErrorCode.AMAP_SERVICE_ERROR
 
 
@@ -92,7 +92,7 @@ async def test_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
     _patch_client(monkeypatch, handler)
     with pytest.raises(AppError) as exc:
-        await amap_places.search_places(keyword="博物馆", city_code="029")
+        await amap_places.search_places(keyword="博物馆", city="西安")
     assert exc.value.code == ErrorCode.AMAP_SERVICE_ERROR
 
 
@@ -116,7 +116,7 @@ async def test_missing_location_skipped(monkeypatch: pytest.MonkeyPatch) -> None
         )
 
     _patch_client(monkeypatch, handler)
-    results = await amap_places.search_places(keyword="t", city_code="029")
+    results = await amap_places.search_places(keyword="t", city="西安")
     assert len(results) == 1
     assert results[0].name == "有坐标"
 

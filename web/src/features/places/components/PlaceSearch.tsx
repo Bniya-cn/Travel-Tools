@@ -5,11 +5,17 @@ import type { Place, PlaceSearchResult } from '../../../types/place';
 
 interface Props {
   tripId: string;
-  cityCode: string;
+  cityName: string;
+  searchPlaceholder?: string;
   onPlaceSaved: (place: Place) => void;
 }
 
-export function PlaceSearch({ tripId, cityCode, onPlaceSaved }: Props) {
+export function PlaceSearch({
+  tripId,
+  cityName,
+  searchPlaceholder = '例如：城市地标 / 博物馆',
+  onPlaceSaved,
+}: Props) {
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -20,7 +26,7 @@ export function PlaceSearch({ tripId, cityCode, onPlaceSaved }: Props) {
     return () => window.clearTimeout(timer);
   }, [keyword]);
 
-  const search = usePlaceSearch(debounced, cityCode, debounced.length > 0);
+  const search = usePlaceSearch(debounced, cityName, debounced.length > 0);
 
   async function handleSelect(hit: PlaceSearchResult) {
     setSaveError(null);
@@ -29,8 +35,7 @@ export function PlaceSearch({ tripId, cityCode, onPlaceSaved }: Props) {
         name: hit.name,
         amap_poi_id: hit.amap_poi_id,
         address: hit.address,
-        city_name: hit.city_name,
-        city_code: hit.city_code ?? cityCode,
+        city_name: hit.city_name ?? cityName,
         district: hit.district,
         lng: hit.lng,
         lat: hit.lat,
@@ -48,11 +53,11 @@ export function PlaceSearch({ tripId, cityCode, onPlaceSaved }: Props) {
         <input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="例如：兵马俑 / 陕西历史博物馆"
+          placeholder={searchPlaceholder}
         />
       </label>
 
-      {!cityCode && <div className="md-banner md-banner--error">当前旅行缺少城市代码，无法搜索</div>}
+      {!cityName && <div className="md-banner md-banner--error">当前旅行缺少城市名称，无法搜索</div>}
       {saveError && <div className="md-banner md-banner--error">{saveError}</div>}
       {search.isError && (
         <div className="md-banner md-banner--error">

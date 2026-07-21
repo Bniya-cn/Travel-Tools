@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { hasAmapJsKeyConfigured, loadAMap } from '../../../lib/amap/loader';
 import { createMap, type MapManager } from '../../../lib/amap/map-manager';
 import { MarkerManager } from '../../../lib/amap/marker-manager';
+import { PolylineManager } from '../../../lib/amap/polyline-manager';
 import { isAmapConfigError } from '../../../lib/amap/errors';
 import type { Place } from '../../../types/place';
 import { toLngLat } from '../../../types/place';
+import type { LngLatTuple } from '../../../types/route';
 
 export type MapFocus = { lng: number; lat: number } | null;
 
@@ -12,12 +14,14 @@ interface Props {
   center: { lng: number; lat: number };
   markers: Place[];
   focus: MapFocus;
+  polyline?: LngLatTuple[];
 }
 
-export function AmapMap({ center, markers, focus }: Props) {
+export function AmapMap({ center, markers, focus, polyline = [] }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const managerRef = useRef<MapManager | null>(null);
   const markerMgrRef = useRef<MarkerManager | null>(null);
+  const polyMgrRef = useRef<PolylineManager | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'no-key'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -39,6 +43,7 @@ export function AmapMap({ center, markers, focus }: Props) {
         const manager = createMap(AMap, containerRef.current, [center.lng, center.lat], 12);
         managerRef.current = manager;
         markerMgrRef.current = new MarkerManager(AMap, manager.map);
+        polyMgrRef.current = new PolylineManager(AMap, manager.map);
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -55,12 +60,13 @@ export function AmapMap({ center, markers, focus }: Props) {
 
     return () => {
       cancelled = true;
+      polyMgrRef.current?.clear();
+      polyMgrRef.current = null;
       markerMgrRef.current?.clearMarkers();
       markerMgrRef.current = null;
       managerRef.current?.destroy();
       managerRef.current = null;
     };
-    // Initialize once per mount; center/markers updated in separate effects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -75,9 +81,20 @@ export function AmapMap({ center, markers, focus }: Props) {
   }, [markers, status]);
 
   useEffect(() => {
+    if (status !== 'ready' || !polyMgrRef.current) return;
+    polyMgrRef.current.update(polyline as [number, number][]);
+  }, [polyline, status]);
+
+  useEffect(() => {
     if (status !== 'ready' || !managerRef.current || !focus) return;
     managerRef.current.setCenter(focus.lng, focus.lat, 15);
   }, [focus, status]);
+
+  // 无手动 focus 时，跟随城市中心 / 首个地点变化（如切换旅行城市）
+  useEffect(() => {
+    if (status !== 'ready' || !managerRef.current || focus) return;
+    managerRef.current.setCenter(center.lng, center.lat, 12);
+  }, [center.lng, center.lat, focus, status]);
 
   return (
     <div className="amap-wrap">

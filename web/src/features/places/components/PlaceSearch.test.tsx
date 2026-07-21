@@ -20,7 +20,12 @@ function renderSearch() {
   const onPlaceSaved = vi.fn();
   render(
     <QueryClientProvider client={client}>
-      <PlaceSearch tripId="t1" cityCode="029" onPlaceSaved={onPlaceSaved} />
+      <PlaceSearch
+        tripId="t1"
+        cityName="西安"
+        searchPlaceholder="例如：兵马俑 / 陕西历史博物馆"
+        onPlaceSaved={onPlaceSaved}
+      />
     </QueryClientProvider>,
   );
   return { onPlaceSaved };

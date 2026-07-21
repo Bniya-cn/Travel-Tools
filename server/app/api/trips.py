@@ -12,6 +12,7 @@ from app.models.itinerary_item import ItineraryItem
 from app.models.trip import Trip
 from app.schemas.common import ApiResponse, ok
 from app.schemas.trip import TripCreate, TripResponse, TripUpdate
+from app.services import auto_transport
 from app.utils.datetime import utc_now
 
 router = APIRouter(prefix="/api/trips", tags=["trips"])
@@ -29,7 +30,6 @@ def create_trip(payload: TripCreate, db: Session = Depends(get_db)) -> ApiRespon
     trip = Trip(
         name=payload.name,
         city_name=payload.city_name,
-        city_code=payload.city_code,
         timezone=payload.timezone,
         start_date=payload.start_date,
         end_date=payload.end_date,
@@ -99,6 +99,8 @@ def update_trip(
 
     for key, value in data.items():
         setattr(trip, key, value)
+    if "city_name" in data:
+        auto_transport.cleanup_segments_for_trip(db, trip.id)
     trip.updated_at = utc_now()
     db.commit()
     db.refresh(trip)
@@ -113,6 +115,8 @@ def delete_trip(trip_id: str, db: Session = Depends(get_db)) -> ApiResponse[dict
     trip = db.get(Trip, trip_id)
     if trip is None:
         raise AppError(ErrorCode.NOT_FOUND, "旅行不存在", status_code=404)
+    # Delete segments before items (transport FK RESTRICT).
+    auto_transport.cleanup_segments_for_trip(db, trip_id)
     db.delete(trip)
     db.commit()
     return ok({"ok": True})

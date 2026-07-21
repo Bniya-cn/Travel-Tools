@@ -24,7 +24,6 @@ const item: ItineraryItem = {
     name: '陕西历史博物馆',
     address: '雁塔区',
     city_name: '西安',
-    city_code: '029',
     district: '雁塔区',
     lng: 108.9599,
     lat: 34.2195,

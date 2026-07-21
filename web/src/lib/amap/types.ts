@@ -1,4 +1,4 @@
-/** Minimal AMap typings — Map + Marker only (no Polyline in this phase). */
+/** AMap typings — Map + Marker + Polyline. */
 
 export type LngLatLike = [number, number];
 
@@ -9,14 +9,21 @@ export type AMapMarker = {
   setExtData: (data: unknown) => void;
 };
 
+export type AMapPolyline = {
+  setMap: (map: AMapMap | null) => void;
+  setPath: (path: LngLatLike[]) => void;
+};
+
+export type AMapOverlay = AMapMarker | AMapPolyline;
+
 export type AMapMap = {
   destroy: () => void;
   clearMap: () => void;
   setCenter: (center: LngLatLike) => void;
   setZoom: (zoom: number) => void;
   setZoomAndCenter: (zoom: number, center: LngLatLike) => void;
-  add: (overlay: AMapMarker | AMapMarker[]) => void;
-  remove: (overlay: AMapMarker | AMapMarker[]) => void;
+  add: (overlay: AMapOverlay | AMapOverlay[]) => void;
+  remove: (overlay: AMapOverlay | AMapOverlay[]) => void;
 };
 
 export type AMapNamespace = {
@@ -33,6 +40,12 @@ export type AMapNamespace = {
     title?: string;
     extData?: unknown;
   }) => AMapMarker;
+  Polyline: new (opts: {
+    path: LngLatLike[];
+    strokeColor?: string;
+    strokeWeight?: number;
+    strokeOpacity?: number;
+  }) => AMapPolyline;
 };
 
 declare global {

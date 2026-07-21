@@ -1,5 +1,3 @@
-import type { Place } from './place';
-
 export type ItemKind = 'activity' | 'transport';
 export type ItemCategory = 'place' | 'meal' | 'hotel' | 'rest' | 'custom';
 
@@ -7,7 +5,6 @@ export interface Trip {
   id: string;
   name: string;
   city_name: string;
-  city_code: string | null;
   timezone: string;
   start_date: string;
   end_date: string;
@@ -20,7 +17,6 @@ export interface Trip {
 export interface TripCreateInput {
   name: string;
   city_name: string;
-  city_code?: string | null;
   timezone?: string;
   start_date: string;
   end_date: string;
@@ -42,7 +38,7 @@ export interface ItineraryItem {
   sort_order: number;
   created_at: string;
   updated_at: string;
-  place?: Place | null;
+  place?: import('./place').Place | null;
 }
 
 export interface ItemCreateInput {

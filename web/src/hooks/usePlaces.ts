@@ -10,11 +10,11 @@ export function usePlaces(tripId: string | undefined) {
   });
 }
 
-export function usePlaceSearch(keyword: string, cityCode: string | undefined, enabled: boolean) {
+export function usePlaceSearch(keyword: string, city: string | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ['place-search', cityCode, keyword],
-    queryFn: () => searchPlaces(keyword, cityCode!),
-    enabled: enabled && Boolean(cityCode) && keyword.trim().length > 0,
+    queryKey: ['place-search', city, keyword],
+    queryFn: () => searchPlaces(keyword, city!),
+    enabled: enabled && Boolean(city) && keyword.trim().length > 0,
     staleTime: 30_000,
   });
 }

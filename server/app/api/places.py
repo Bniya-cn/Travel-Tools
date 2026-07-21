@@ -38,9 +38,9 @@ def _get_place_or_404(db: Session, place_id: str) -> Place:
 @router.get("/api/places/search", response_model=ApiResponse[list[PlaceSearchResult]])
 async def search_places(
     keyword: str = Query(min_length=1),
-    city_code: str = Query(min_length=1),
+    city: str = Query(min_length=1, description="城市中文名，如：西安"),
 ) -> ApiResponse[list[PlaceSearchResult]]:
-    results = await amap_places_service.search_places(keyword=keyword, city_code=city_code)
+    results = await amap_places_service.search_places(keyword=keyword, city=city)
     return ok(results)
 
 
@@ -81,7 +81,6 @@ def create_place(
         name=payload.name,
         address=payload.address,
         city_name=payload.city_name,
-        city_code=payload.city_code,
         district=payload.district,
         lng=Decimal(str(round(payload.lng, 6))),
         lat=Decimal(str(round(payload.lat, 6))),

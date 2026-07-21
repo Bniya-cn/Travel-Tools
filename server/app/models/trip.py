@@ -15,6 +15,7 @@ from app.utils.datetime import utc_now
 if TYPE_CHECKING:
     from app.models.itinerary_item import ItineraryItem
     from app.models.place import Place
+    from app.models.route_segment import RouteSegment
 
 
 class Trip(Base):
@@ -23,7 +24,6 @@ class Trip(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     city_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    city_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Asia/Shanghai")
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -43,6 +43,11 @@ class Trip(Base):
     )
     places: Mapped[list[Place]] = relationship(
         "Place",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+    )
+    route_segments: Mapped[list[RouteSegment]] = relationship(
+        "RouteSegment",
         back_populates="trip",
         cascade="all, delete-orphan",
     )

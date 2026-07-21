@@ -12,7 +12,6 @@ class PlaceSearchResult(BaseModel):
     name: str
     address: str | None = None
     city_name: str | None = None
-    city_code: str | None = None
     district: str | None = None
     lng: float
     lat: float
@@ -24,7 +23,6 @@ class PlaceCreate(BaseModel):
     amap_poi_id: str | None = Field(default=None, max_length=100)
     address: str | None = Field(default=None, max_length=500)
     city_name: str | None = Field(default=None, max_length=100)
-    city_code: str | None = Field(default=None, max_length=50)
     district: str | None = Field(default=None, max_length=100)
     lng: float
     lat: float
@@ -41,7 +39,6 @@ class PlaceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     address: str | None = Field(default=None, max_length=500)
     city_name: str | None = Field(default=None, max_length=100)
-    city_code: str | None = Field(default=None, max_length=50)
     district: str | None = Field(default=None, max_length=100)
     lng: float | None = None
     lat: float | None = None
@@ -56,7 +53,6 @@ class PlaceResponse(BaseModel):
     name: str
     address: str | None
     city_name: str | None
-    city_code: str | None
     district: str | None
     lng: Decimal
     lat: Decimal

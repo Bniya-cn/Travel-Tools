@@ -360,6 +360,167 @@ a {
   text-align: left;
 }
 
+.timeline-item--transport {
+  border-left: 3px solid #1a73e8;
+}
+
+.timeline-item__kind {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--md-muted);
+  letter-spacing: 0.02em;
+}
+
+.route-preview {
+  margin: 0.75rem 0 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--md-border);
+}
+
+.route-preview__tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.route-preview__tabs button {
+  border: 1px solid var(--md-border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.route-preview__tabs button.is-active {
+  border-color: var(--md-primary);
+  color: var(--md-primary);
+}
+
+.route-preview__body {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+}
+
+.city-picker {
+  position: relative;
+}
+
+.city-picker .md-field__label,
+.md-field > .city-picker > .md-field__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--md-muted);
+}
+
+.city-picker__trigger {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--md-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.city-picker__trigger:hover,
+.city-picker__trigger:focus {
+  border-color: color-mix(in oklab, var(--md-primary) 35%, white);
+  outline: none;
+}
+
+.city-picker__panel {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  height: 320px;
+  max-height: min(320px, 50vh);
+  border: 1px solid var(--md-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  overflow: hidden;
+}
+
+.city-picker__provinces {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-right: 1px solid var(--md-border);
+  background: #fafafa;
+  overscroll-behavior: contain;
+}
+
+.city-picker__provinces button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.city-picker__provinces button.is-active,
+.city-picker__provinces button:hover {
+  background: #fff;
+  color: var(--md-primary);
+}
+
+.city-picker__main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.city-picker__hint {
+  margin: 0.55rem 0.55rem 0.25rem;
+  font-size: 0.78rem;
+}
+
+.city-picker__results {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.4rem 0.55rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.city-picker__results button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.45rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.city-picker__results button:hover {
+  background: #f3f6fb;
+}
+
 .page-pad {
   padding: 2rem 1.25rem;
 }

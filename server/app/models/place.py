@@ -33,7 +33,6 @@ class Place(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    city_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     lng: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     lat: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)

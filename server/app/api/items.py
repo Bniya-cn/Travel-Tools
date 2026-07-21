@@ -17,6 +17,7 @@ from app.schemas.common import ApiResponse, ok
 from app.schemas.itinerary import ItineraryItemCreate, ItineraryItemResponse, ItineraryItemUpdate
 from app.services.conflict import check_time_conflict
 from app.services.item_rules import ensure_date_in_trip_range, validate_item_fields
+from app.services import auto_transport
 from app.utils.datetime import utc_now
 
 router = APIRouter(tags=["items"])
@@ -181,6 +182,16 @@ def update_item(
     )
     next_place_id = _resolve_place_for_trip(db, item.trip_id, next_place_id)
 
+    # Invalidate auto-transport when place or times change.
+    invalidate = (
+        next_place_id != item.place_id
+        or next_start != item.start_time
+        or next_end != item.end_time
+        or next_date != item.date
+    )
+    if invalidate:
+        auto_transport.cleanup_segments_for_item(db, item.id)
+
     if not next_all_day and next_start and next_end:
         existing = _day_items(db, item.trip_id, next_date)
         conflict = check_time_conflict(
@@ -216,6 +227,8 @@ def update_item(
 @router.delete("/api/items/{item_id}", response_model=ApiResponse[dict])
 def delete_item(item_id: str, db: Session = Depends(get_db)) -> ApiResponse[dict]:
     item = _get_item_or_404(db, item_id)
+    # Explicit cleanup before deleting item (transport FK is RESTRICT).
+    auto_transport.cleanup_segments_for_item(db, item.id)
     db.delete(item)
     db.commit()
     return ok({"ok": True})

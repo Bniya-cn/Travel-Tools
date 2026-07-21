@@ -20,7 +20,17 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     secret_key: str = "dev-only-change-me"
     amap_web_service_key: str = ""
+    amap_place_text_url: str = "https://restapi.amap.com/v3/place/text"
+    amap_geocode_url: str = "https://restapi.amap.com/v3/geocode/geo"
+    amap_transit_url: str = "https://restapi.amap.com/v3/direction/transit/integrated"
+    amap_walking_url: str = "https://restapi.amap.com/v3/direction/walking"
+    # OpenAI 兼容接口（留空则 city-hints 走本地回退）
+    ai_api_base_url: str = ""
+    ai_api_key: str = ""
+    ai_model: str = ""
     cors_origins: str = "http://localhost:5173"
+    preview_token_ttl_seconds: int = 1800
+    route_cache_ttl_hours: int = 12
 
     @property
     def sqlalchemy_database_url(self) -> str:

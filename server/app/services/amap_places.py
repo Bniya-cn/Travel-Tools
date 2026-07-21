@@ -13,8 +13,6 @@ from app.schemas.place import PlaceSearchResult
 
 logger = logging.getLogger("travel_planner.amap")
 
-AMAP_PLACE_TEXT_URL = "https://restapi.amap.com/v3/place/text"
-
 
 def _parse_location(location: Any) -> tuple[float, float] | None:
     if not isinstance(location, str) or "," not in location:
@@ -40,12 +38,6 @@ def map_poi_to_result(poi: dict[str, Any]) -> PlaceSearchResult | None:
         return None
     lng, lat = coords
 
-    city_code = poi.get("citycode") or poi.get("adcode")
-    if isinstance(city_code, list):
-        city_code = city_code[0] if city_code else None
-    if city_code is not None:
-        city_code = str(city_code)
-
     address = poi.get("address")
     if isinstance(address, list):
         address = " ".join(str(a) for a in address if a) or None
@@ -67,7 +59,6 @@ def map_poi_to_result(poi: dict[str, Any]) -> PlaceSearchResult | None:
         name=name.strip(),
         address=address,
         city_name=city_name,
-        city_code=city_code,
         district=district,
         lng=lng,
         lat=lat,
@@ -75,7 +66,7 @@ def map_poi_to_result(poi: dict[str, Any]) -> PlaceSearchResult | None:
     )
 
 
-async def search_places(*, keyword: str, city_code: str, page: int = 1, offset: int = 20) -> list[PlaceSearchResult]:
+async def search_places(*, keyword: str, city: str, page: int = 1, offset: int = 20) -> list[PlaceSearchResult]:
     settings = get_settings()
     if not settings.amap_web_service_key.strip():
         raise AppError(
@@ -87,7 +78,7 @@ async def search_places(*, keyword: str, city_code: str, page: int = 1, offset: 
     params = {
         "key": settings.amap_web_service_key,
         "keywords": keyword.strip(),
-        "city": city_code.strip(),
+        "city": city.strip(),
         "citylimit": "true",
         "offset": min(max(offset, 1), 25),
         "page": max(page, 1),
@@ -96,7 +87,7 @@ async def search_places(*, keyword: str, city_code: str, page: int = 1, offset: 
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, read=10.0)) as client:
-            response = await client.get(AMAP_PLACE_TEXT_URL, params=params)
+            response = await client.get(settings.amap_place_text_url, params=params)
     except httpx.TimeoutException:
         logger.warning("Amap place search timeout")
         raise AppError(ErrorCode.AMAP_SERVICE_ERROR, "高德地点搜索超时", status_code=502) from None

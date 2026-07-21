@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ItemForm } from '../features/itinerary/components/ItemForm';
 import { Timeline } from '../features/itinerary/components/Timeline';
 import { AmapMap, type MapFocus } from '../features/map/components/AmapMap';
 import { PlaceSearch } from '../features/places/components/PlaceSearch';
+import { RoutePreviewPanel } from '../features/routes/components/RoutePreviewPanel';
+import { useCityCenter, useCityHints } from '../hooks/useCity';
 import { useCreateItem, useDeleteItem, useItems } from '../hooks/useItems';
 import { usePlaces } from '../hooks/usePlaces';
 import { useTrip } from '../hooks/useTrips';
@@ -11,8 +13,9 @@ import { eachDate } from '../utils/dates';
 import type { ItemCreateInput, ItineraryItem } from '../types/trip';
 import type { Place } from '../types/place';
 import { toLngLat } from '../types/place';
+import type { LngLatTuple } from '../types/route';
 
-const XI_AN_CENTER = { lng: 108.9398, lat: 34.3416 };
+const FALLBACK_CENTER = { lng: 104.0665, lat: 30.5723 };
 
 export function TripPlannerPage() {
   const { tripId } = useParams<{ tripId: string }>();
@@ -28,22 +31,43 @@ export function TripPlannerPage() {
 
   const { data: items, isLoading: itemsLoading } = useItems(tripId, selectedDate || undefined);
   const { data: places } = usePlaces(tripId);
+  const { data: cityCenter } = useCityCenter(trip?.city_name);
+  const { data: cityHints } = useCityHints(trip?.city_name);
   const createItem = useCreateItem(tripId || '');
   const deleteItem = useDeleteItem(tripId || '', selectedDate);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingPlaceId, setPendingPlaceId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<MapFocus>(null);
+  const [polyline, setPolyline] = useState<LngLatTuple[]>([]);
+
+  const activityWithPlace = useMemo(() => {
+    return (items ?? [])
+      .filter((i) => i.kind === 'activity' && i.place_id && !i.is_all_day)
+      .slice()
+      .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+  }, [items]);
+
+  const afterItemId = activityWithPlace[0]?.id ?? null;
+  const beforeItemId = activityWithPlace[1]?.id ?? null;
 
   const mapCenter = useMemo(() => {
     if (places && places.length > 0) {
       return toLngLat(places[0]);
     }
-    return XI_AN_CENTER;
-  }, [places]);
+    if (cityCenter) {
+      return { lng: cityCenter.lng, lat: cityCenter.lat };
+    }
+    return FALLBACK_CENTER;
+  }, [places, cityCenter]);
+
+  const onPolylineChange = useCallback((path: [number, number][]) => {
+    setPolyline(path);
+  }, []);
 
   function selectDate(date: string) {
     setSearchParams({ date });
+    setPolyline([]);
   }
 
   async function handleCreate(payload: ItemCreateInput) {
@@ -136,6 +160,9 @@ export function TripPlannerPage() {
             selectedDate={selectedDate}
             places={places ?? []}
             pendingPlaceId={pendingPlaceId}
+            titlePlaceholder={
+              cityHints?.title_placeholder ?? `例如：${trip.city_name}热门景点`
+            }
             onSubmit={handleCreate}
             submitting={createItem.isPending}
           />
@@ -143,10 +170,26 @@ export function TripPlannerPage() {
 
         <aside className="planner__map md-card">
           <h2>地图与地点</h2>
-          <AmapMap center={mapCenter} markers={places ?? []} focus={mapFocus} />
+          <AmapMap
+            center={mapCenter}
+            markers={places ?? []}
+            focus={mapFocus}
+            polyline={polyline}
+          />
+          <RoutePreviewPanel
+            tripId={tripId}
+            date={selectedDate}
+            afterItemId={afterItemId}
+            beforeItemId={beforeItemId}
+            onPolylineChange={onPolylineChange}
+            onPersisted={() => setPolyline([])}
+          />
           <PlaceSearch
             tripId={tripId}
-            cityCode={trip.city_code || ''}
+            cityName={trip.city_name}
+            searchPlaceholder={
+              cityHints?.search_placeholder ?? `例如：${trip.city_name}地标 / 博物馆`
+            }
             onPlaceSaved={handlePlaceSaved}
           />
         </aside>

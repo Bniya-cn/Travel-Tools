@@ -7,8 +7,7 @@ def _create_trip(client, **overrides):
     payload = {
         "name": "西安五日游",
         "city_name": "西安",
-        "city_code": "029",
-        "start_date": "2026-10-01",
+                "start_date": "2026-10-01",
         "end_date": "2026-10-05",
     }
     payload.update(overrides)

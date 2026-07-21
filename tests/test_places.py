@@ -7,8 +7,7 @@ def _create_trip(client, **overrides):
     payload = {
         "name": "西安五日游",
         "city_name": "西安",
-        "city_code": "029",
-        "start_date": "2026-10-01",
+                "start_date": "2026-10-01",
         "end_date": "2026-10-05",
     }
     payload.update(overrides)
@@ -23,8 +22,7 @@ def _create_place(client, trip_id: str, **overrides):
         "amap_poi_id": "B000A7BD6C",
         "address": "西安市雁塔区",
         "city_name": "西安市",
-        "city_code": "029",
-        "district": "雁塔区",
+                "district": "雁塔区",
         "lng": 108.9599,
         "lat": 34.2195,
     }
