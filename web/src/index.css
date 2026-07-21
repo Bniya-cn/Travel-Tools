@@ -1,0 +1,126 @@
+:root {
+  color-scheme: light;
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.985 0.004 40);
+  --ink: oklch(0.22 0.02 40);
+  --muted: oklch(0.45 0.02 40);
+  --primary: oklch(0.62 0.18 40);
+  --border: oklch(0.9 0.01 40);
+  --ok: oklch(0.55 0.12 145);
+  --err: oklch(0.55 0.2 25);
+  --font: 'Outfit', 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-family: var(--font);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, oklch(0.96 0.03 40), transparent 60%),
+    var(--bg);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.page__brand {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.page__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.page__lead {
+  margin: 0;
+  color: var(--muted);
+  max-width: 42ch;
+}
+
+.status {
+  margin-top: 2rem;
+  padding: 1.25rem 1.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.status[data-state='ok'] .status__value {
+  color: var(--ok);
+}
+
+.status[data-state='error'] .status__value {
+  color: var(--err);
+}
+
+.status[data-state='loading'] .status__value {
+  color: var(--muted);
+}
+
+.status__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.status__value {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.status__hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.hints {
+  margin-top: 2rem;
+}
+
+.hints h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.hints ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
+.hints li + li {
+  margin-top: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
