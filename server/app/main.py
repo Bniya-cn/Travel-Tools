@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.health import router as health_router
+from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.schemas.common import fail
@@ -38,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health_router)
+app.include_router(api_router)
 
 
 @app.exception_handler(AppError)
@@ -49,10 +49,17 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    safe_errors = []
+    for err in exc.errors():
+        item = {k: v for k, v in err.items() if k != "ctx"}
+        # Keep a readable hint without non-serializable Exception objects
+        if "ctx" in err and isinstance(err["ctx"], dict) and "error" in err["ctx"]:
+            item["hint"] = str(err["ctx"]["error"])
+        safe_errors.append(item)
     body = fail(
         ErrorCode.VALIDATION_ERROR,
         "请求参数校验失败",
-        {"errors": exc.errors()},
+        {"errors": safe_errors},
     )
     return JSONResponse(status_code=422, content=body.model_dump())
 

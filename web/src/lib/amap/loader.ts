@@ -8,6 +8,12 @@ import type { AMapNamespace } from './types';
 
 let loadPromise: Promise<AMapNamespace> | null = null;
 
+export function hasAmapJsKeyConfigured(): boolean {
+  const key = import.meta.env.VITE_AMAP_JS_KEY as string | undefined;
+  const code = import.meta.env.VITE_AMAP_SECURITY_CODE as string | undefined;
+  return Boolean(key?.trim() && code?.trim());
+}
+
 function readJsKey(): string {
   const key = import.meta.env.VITE_AMAP_JS_KEY as string | undefined;
   if (!key?.trim()) {
@@ -36,6 +42,7 @@ export function applyAmapSecurityConfig(): void {
 
 /**
  * Idempotent loader — safe under React StrictMode double-invoke.
+ * Alias: loadAMap (task name) / loadAmap (existing).
  */
 export function loadAmap(plugins: string[] = []): Promise<AMapNamespace> {
   if (!loadPromise) {
@@ -52,9 +59,11 @@ export function loadAmap(plugins: string[] = []): Promise<AMapNamespace> {
       } catch (err) {
         loadPromise = null;
         const message = err instanceof Error ? err.message : '高德 JS API 加载失败';
-        throw new AmapConfigError('LOAD_FAILED', message);
+        throw new AmapConfigError('AMAP_LOAD_FAILED', message);
       }
     })();
   }
   return loadPromise;
 }
+
+export const loadAMap = loadAmap;

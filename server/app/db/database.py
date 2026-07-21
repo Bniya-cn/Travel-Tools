@@ -15,4 +15,14 @@ def create_db_engine() -> Engine:
     if url.startswith("sqlite:"):
         # Required for SQLite + FastAPI multi-thread default
         connect_args["check_same_thread"] = False
-    return create_engine(url, connect_args=connect_args, future=True)
+    engine = create_engine(url, connect_args=connect_args, future=True)
+    if url.startswith("sqlite:"):
+        from sqlalchemy import event
+
+        @event.listens_for(engine, "connect")
+        def _enable_sqlite_fks(dbapi_connection, _connection_record) -> None:  # type: ignore[no-untyped-def]
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    return engine
