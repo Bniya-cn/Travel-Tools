@@ -14,7 +14,7 @@ from app.schemas.routes import RouteDTO, RouteStepDTO
 logger = logging.getLogger("travel_planner.amap")
 
 PROVIDER = "amap"
-PROVIDER_VERSION = "v5"
+PROVIDER_VERSION = "v5.1"
 DEFAULT_TRANSIT_STRATEGY = 7
 
 
@@ -91,6 +91,122 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _stop_name(raw: Any) -> str | None:
+    """Amap departure_stop / arrival_stop may be dict or plain string."""
+    if isinstance(raw, dict):
+        name = raw.get("name")
+        return str(name).strip() if name else None
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def _short_line_name(name: str | None) -> str | None:
+    """'地铁2号线(韦曲南--北客站)' → '地铁2号线'."""
+    if not name:
+        return None
+    text = name.strip()
+    if "(" in text:
+        text = text.split("(", 1)[0].strip()
+    if "（" in text:
+        text = text.split("（", 1)[0].strip()
+    return text or None
+
+
+def format_transit_instruction(
+    *,
+    line_name: str | None,
+    line_type: str | None,
+    departure_stop: str | None,
+    arrival_stop: str | None,
+    via_num: int | None,
+) -> str | None:
+    """可读交通指引：坐哪条线、哪站上、哪站下、坐几站。"""
+    line = _short_line_name(line_name) or line_name
+    parts: list[str] = []
+    if line:
+        if line_type and "地铁" in line_type and "地铁" not in line:
+            parts.append(f"地铁 {line}")
+        else:
+            parts.append(line)
+    if departure_stop and arrival_stop:
+        parts.append(f"{departure_stop}上车 → {arrival_stop}下车")
+    elif departure_stop:
+        parts.append(f"{departure_stop}上车")
+    elif arrival_stop:
+        parts.append(f"{arrival_stop}下车")
+    if via_num is not None and via_num >= 0:
+        # via_num 为途经站数；上车到下车共 via_num+1 站
+        parts.append(f"共 {via_num + 1} 站")
+    return " · ".join(parts) if parts else None
+
+
+def simplify_route_steps(steps: list[RouteStepDTO]) -> list[RouteStepDTO]:
+    """合并过细步行指引，只保留「步行约 N 米」+ 地铁/公交上下车信息。"""
+    out: list[RouteStepDTO] = []
+    walk_dist = 0
+    walk_dur = 0
+    has_walk = False
+
+    def flush_walk() -> None:
+        nonlocal walk_dist, walk_dur, has_walk
+        if not has_walk:
+            return
+        if walk_dist > 0:
+            instruction = f"步行约 {walk_dist} 米"
+        else:
+            instruction = "步行"
+        out.append(
+            RouteStepDTO(
+                instruction=instruction,
+                distance_meters=walk_dist or None,
+                duration_seconds=walk_dur or None,
+                mode="walking",
+            )
+        )
+        walk_dist = 0
+        walk_dur = 0
+        has_walk = False
+
+    for step in steps:
+        if step.mode == "walking":
+            has_walk = True
+            walk_dist += step.distance_meters or 0
+            walk_dur += step.duration_seconds or 0
+            continue
+        flush_walk()
+        out.append(step)
+    flush_walk()
+    return out
+
+
+def format_route_steps_summary(steps: list[RouteStepDTO]) -> str | None:
+    """写入交通事项 description 的多行摘要（已精简步行）。"""
+    lines: list[str] = []
+    for step in simplify_route_steps(steps):
+        text = (step.instruction or "").strip()
+        if text:
+            lines.append(text)
+    if not lines:
+        return None
+    return "\n".join(lines[:12])
+
+
+def format_steps_summary_from_json(steps: list[dict[str, Any]] | None) -> str | None:
+    """从 RouteSegment.steps_json 还原可读摘要（兼容旧数据）。"""
+    if not steps:
+        return None
+    parsed: list[RouteStepDTO] = []
+    for raw in steps:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            parsed.append(RouteStepDTO.model_validate(raw))
+        except Exception:
+            continue
+    return format_route_steps_summary(parsed)
+
+
 def map_transit_payload(payload: dict[str, Any], *, strategy: int) -> RouteDTO:
     route = payload.get("route") or {}
     transits = route.get("transits") or []
@@ -119,15 +235,23 @@ def map_transit_payload(payload: dict[str, Any], *, strategy: int) -> RouteDTO:
                 continue
             walking_seg = seg.get("walking") or {}
             if isinstance(walking_seg, dict):
+                walk_dist = 0
+                walk_dur = 0
+                walk_any = False
                 for step in walking_seg.get("steps") or []:
                     if not isinstance(step, dict):
                         continue
                     polyline.extend(parse_polyline(step.get("polyline")))
+                    walk_any = True
+                    walk_dist += _safe_int(step.get("distance")) or 0
+                    walk_dur += _safe_int(step.get("duration")) or 0
+                # 整段步行只记一条，不要左右转逐步指引
+                if walk_any:
                     steps.append(
                         RouteStepDTO(
-                            instruction=str(step.get("instruction") or "") or None,
-                            distance_meters=_safe_int(step.get("distance")),
-                            duration_seconds=_safe_int(step.get("duration")),
+                            instruction=f"步行约 {walk_dist} 米" if walk_dist else "步行",
+                            distance_meters=walk_dist or None,
+                            duration_seconds=walk_dur or None,
                             mode="walking",
                         )
                     )
@@ -139,16 +263,36 @@ def map_transit_payload(payload: dict[str, Any], *, strategy: int) -> RouteDTO:
                         continue
                     transit_legs += 1
                     polyline.extend(parse_polyline(line.get("polyline")))
-                    name = line.get("name") or line.get("type")
+                    raw_name = line.get("name") or line.get("type")
+                    line_name = str(raw_name).strip() if raw_name else None
+                    raw_type = line.get("type")
+                    line_type = str(raw_type).strip() if raw_type else None
+                    departure = _stop_name(line.get("departure_stop"))
+                    arrival = _stop_name(line.get("arrival_stop"))
+                    via_num = _safe_int(line.get("via_num"))
+                    instruction = format_transit_instruction(
+                        line_name=line_name,
+                        line_type=line_type,
+                        departure_stop=departure,
+                        arrival_stop=arrival,
+                        via_num=via_num,
+                    ) or line_name
                     steps.append(
                         RouteStepDTO(
-                            instruction=str(name) if name else None,
+                            instruction=instruction,
                             distance_meters=_safe_int(line.get("distance")),
                             duration_seconds=_safe_int(line.get("duration")),
                             mode="transit",
+                            line_name=line_name,
+                            line_type=line_type,
+                            departure_stop=departure,
+                            arrival_stop=arrival,
+                            via_num=via_num,
                         )
                     )
         transfer_count = max(transit_legs - 1, 0)
+
+    steps = simplify_route_steps(steps)
 
     if not polyline:
         raise AppError(ErrorCode.AMAP_SERVICE_ERROR, "高德公交缺少 polyline", status_code=502)

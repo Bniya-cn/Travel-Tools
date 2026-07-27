@@ -4,6 +4,8 @@ export type MapManager = {
   map: AMapMap;
   destroy: () => void;
   setCenter: (lng: number, lat: number, zoom?: number) => void;
+  resize: () => void;
+  fitView: () => void;
 };
 
 /**
@@ -32,6 +34,15 @@ export function createMap(
       } else {
         map.setCenter([lng, lat]);
       }
+    },
+    resize() {
+      if (destroyed) return;
+      map.resize?.();
+    },
+    fitView() {
+      if (destroyed) return;
+      // 让路线/点位进入视野，同时触发底图瓦片重绘
+      map.setFitView?.(undefined, false, [48, 48, 48, 48]);
     },
     destroy() {
       if (destroyed) return;

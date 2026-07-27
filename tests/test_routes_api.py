@@ -192,3 +192,40 @@ def test_delete_activity_cleans_transport(client, monkeypatch, pair):
     assert client.delete(f"/api/items/{after['id']}").status_code == 200
     items = client.get(f"/api/trips/{trip['id']}/items", params={"date": "2026-10-01"})
     assert all(i["kind"] != "transport" for i in items.json()["data"])
+
+
+def test_list_trip_segments_by_date(client, monkeypatch, pair):
+    trip, after, before = pair
+    monkeypatch.setattr(
+        "app.services.route_resolve.amap_routes.fetch_walking_route",
+        AsyncMock(return_value=_route_dto(600)),
+    )
+    prev = client.post(
+        "/api/routes/walking/preview",
+        json={"after_item_id": after["id"], "before_item_id": before["id"]},
+    )
+    client.post(
+        "/api/routes/segments",
+        json={
+            "after_item_id": after["id"],
+            "before_item_id": before["id"],
+            "route_type": "walking",
+            "preview_token": prev.json()["data"]["preview_token"],
+        },
+    )
+    listed = client.get(
+        f"/api/trips/{trip['id']}/route-segments",
+        params={"date": "2026-10-01"},
+    )
+    assert listed.status_code == 200
+    data = listed.json()["data"]
+    assert len(data) == 1
+    assert data[0]["polyline_json"]
+    assert data[0]["origin_name"]
+
+    empty = client.get(
+        f"/api/trips/{trip['id']}/route-segments",
+        params={"date": "2026-10-02"},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["data"] == []

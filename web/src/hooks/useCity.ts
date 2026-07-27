@@ -13,10 +13,10 @@ export function useCityCenter(cityName: string | undefined) {
 
 export function useCityHints(cityName: string | undefined) {
   return useQuery({
-    queryKey: ['city-hints', cityName],
+    queryKey: ['city-recommendations', cityName],
     queryFn: () => fetchCityHints(cityName!),
     enabled: Boolean(cityName?.trim()),
-    staleTime: 24 * 60 * 60_000,
+    staleTime: 60 * 60_000,
     retry: 1,
   });
 }

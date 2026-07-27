@@ -8,6 +8,11 @@ export interface RouteStep {
   distance_meters: number | null;
   duration_seconds: number | null;
   mode: string | null;
+  line_name?: string | null;
+  line_type?: string | null;
+  departure_stop?: string | null;
+  arrival_stop?: string | null;
+  via_num?: number | null;
 }
 
 export interface RouteDTO {
@@ -45,6 +50,10 @@ export interface RouteSegment {
   before_item_id: string;
   origin_name: string;
   destination_name: string;
+  origin_lng?: number | string;
+  origin_lat?: number | string;
+  destination_lng?: number | string;
+  destination_lat?: number | string;
   route_type: string;
   strategy: number;
   duration_seconds: number;
@@ -52,4 +61,5 @@ export interface RouteSegment {
   walking_distance_meters: number | null;
   transfer_count: number;
   polyline_json: LngLatTuple[] | null;
+  steps_json?: RouteStep[] | null;
 }

@@ -1,4 +1,5 @@
 import { apiGet } from './client';
+import type { PlaceSearchResult } from '../types/place';
 
 export type CityCenter = {
   city_name: string;
@@ -8,8 +9,8 @@ export type CityCenter = {
 
 export type CityHints = {
   city_name: string;
-  title_placeholder: string;
-  search_placeholder: string;
+  titles: string[];
+  places: PlaceSearchResult[];
   source: 'ai' | 'fallback';
 };
 

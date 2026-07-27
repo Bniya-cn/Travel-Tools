@@ -1,4 +1,4 @@
-import { apiSend } from './client';
+import { apiGet, apiSend } from './client';
 import type {
   RoutePreviewResponse,
   RouteSegment,
@@ -17,6 +17,11 @@ export function previewRoute(
     before_item_id: beforeItemId,
     strategy: strategy ?? null,
   });
+}
+
+export function listTripRouteSegments(tripId: string, date?: string) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  return apiGet<RouteSegment[]>(`/api/trips/${tripId}/route-segments${qs}`);
 }
 
 export function createRouteSegment(payload: RouteSegmentCreateInput) {

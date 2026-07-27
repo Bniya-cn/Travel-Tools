@@ -10,7 +10,8 @@ interface Props {
   selectedDate: string;
   places: Place[];
   pendingPlaceId?: string | null;
-  titlePlaceholder?: string;
+  /** 城市推荐事项标题，点击填入标题框 */
+  recommendedTitles?: string[];
   onSubmit: (payload: ItemCreateInput) => Promise<void>;
   submitting?: boolean;
 }
@@ -29,7 +30,7 @@ export function ItemForm({
   selectedDate,
   places,
   pendingPlaceId,
-  titlePlaceholder = '例如：热门景点',
+  recommendedTitles = [],
   onSubmit,
   submitting,
 }: Props) {
@@ -111,12 +112,30 @@ export function ItemForm({
       <h3 className="item-form__title">添加事项</h3>
       {error && <ConflictWarning message={error} />}
 
+      {recommendedTitles.length > 0 && (
+        <div className="recommend-block">
+          <span className="recommend-block__label">推荐标题</span>
+          <div className="recommend-block__chips">
+            {recommendedTitles.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="recommend-chip"
+                onClick={() => setTitle(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <label className="md-field">
         <span>标题</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={titlePlaceholder}
+          placeholder="输入事项标题"
         />
       </label>
 

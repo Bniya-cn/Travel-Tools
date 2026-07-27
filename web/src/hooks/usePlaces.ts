@@ -25,6 +25,7 @@ export function useCreatePlace(tripId: string) {
     mutationFn: (payload: PlaceCreateInput) => createPlace(tripId, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['places', tripId] });
+      qc.invalidateQueries({ queryKey: ['trip-places', tripId] });
     },
   });
 }

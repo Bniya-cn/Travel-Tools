@@ -45,7 +45,7 @@ def build_cache_material(
     date_str: str,
     time_bucket: str,
     provider: str = "amap",
-    provider_version: str = "v5",
+    provider_version: str = "v5.1",
 ) -> str:
     return ":".join(
         [

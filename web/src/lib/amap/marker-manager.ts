@@ -4,6 +4,8 @@ export type MarkerData = {
   id: string;
   position: LngLatLike;
   title: string;
+  /** Optional map label e.g. "①" */
+  label?: string;
 };
 
 /**
@@ -39,12 +41,24 @@ export class MarkerManager {
       const existing = this.markers.get(item.id);
       if (existing) {
         existing.setExtData(item);
+        if (typeof (existing as { setPosition?: (p: LngLatLike) => void }).setPosition === 'function') {
+          (existing as { setPosition: (p: LngLatLike) => void }).setPosition(item.position);
+        }
+        if (item.label && typeof (existing as { setLabel?: (o: unknown) => void }).setLabel === 'function') {
+          (existing as { setLabel: (o: unknown) => void }).setLabel({
+            content: item.label,
+            direction: 'top',
+          });
+        }
         continue;
       }
       const marker = new this.AMap.Marker({
         position: item.position,
         title: item.title,
         extData: item,
+        label: item.label
+          ? { content: `<span class="amap-marker-label">${item.label}</span>`, direction: 'top' }
+          : undefined,
       });
       this.map.add(marker);
       this.markers.set(item.id, marker);

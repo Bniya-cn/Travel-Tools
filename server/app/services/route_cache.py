@@ -52,6 +52,7 @@ def make_cache_key(
         nightflag=nightflag,
         date_str=route_date.isoformat(),
         time_bucket=time_bucket,
+        provider_version="v5.1",
     )
     return sha256_cache_key(material)
 

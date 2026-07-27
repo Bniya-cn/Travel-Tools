@@ -22,6 +22,12 @@ export type AMapMap = {
   setCenter: (center: LngLatLike) => void;
   setZoom: (zoom: number) => void;
   setZoomAndCenter: (zoom: number, center: LngLatLike) => void;
+  resize?: () => void;
+  setFitView?: (
+    overlays?: AMapOverlay[] | null,
+    immediately?: boolean,
+    avoid?: number[],
+  ) => void;
   add: (overlay: AMapOverlay | AMapOverlay[]) => void;
   remove: (overlay: AMapOverlay | AMapOverlay[]) => void;
 };

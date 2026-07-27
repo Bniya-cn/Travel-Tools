@@ -22,6 +22,12 @@ class RouteStepDTO(BaseModel):
     distance_meters: int | None = None
     duration_seconds: int | None = None
     mode: str | None = None
+    # 公交/地铁分段补充信息（步行段可为空）
+    line_name: str | None = None
+    line_type: str | None = None
+    departure_stop: str | None = None
+    arrival_stop: str | None = None
+    via_num: int | None = None
 
 
 class RouteDTO(BaseModel):

@@ -1,12 +1,14 @@
 import type { AMapMap, AMapNamespace, AMapPolyline, LngLatLike } from './types';
 
+const SEGMENT_COLORS = ['#1a73e8', '#ea580c', '#0d9488', '#7c3aed', '#db2777'];
+
 /**
- * Single polyline manager — replace on update, remove on clear/unmount.
+ * Polyline manager — supports a single path or multi-segment colored paths.
  */
 export class PolylineManager {
   private readonly AMap: AMapNamespace;
   private readonly map: AMapMap;
-  private polyline: AMapPolyline | null = null;
+  private polylines: AMapPolyline[] = [];
 
   constructor(AMap: AMapNamespace, map: AMapMap) {
     this.AMap = AMap;
@@ -16,19 +18,34 @@ export class PolylineManager {
   update(path: LngLatLike[]): void {
     this.clear();
     if (path.length < 2) return;
-    this.polyline = new this.AMap.Polyline({
+    this._add(path, SEGMENT_COLORS[0]);
+  }
+
+  /** Draw multiple segments with alternating colors. */
+  updateSegments(paths: LngLatLike[][]): void {
+    this.clear();
+    paths.forEach((path, i) => {
+      if (path.length < 2) return;
+      this._add(path, SEGMENT_COLORS[i % SEGMENT_COLORS.length]);
+    });
+  }
+
+  private _add(path: LngLatLike[], color: string): void {
+    const line = new this.AMap.Polyline({
       path,
-      strokeColor: '#1a73e8',
+      strokeColor: color,
       strokeWeight: 5,
       strokeOpacity: 0.85,
     });
-    this.map.add(this.polyline);
+    this.map.add(line);
+    this.polylines.push(line);
   }
 
   clear(): void {
-    if (!this.polyline) return;
-    this.polyline.setMap(null);
-    this.map.remove(this.polyline);
-    this.polyline = null;
+    for (const line of this.polylines) {
+      line.setMap(null);
+      this.map.remove(line);
+    }
+    this.polylines = [];
   }
 }

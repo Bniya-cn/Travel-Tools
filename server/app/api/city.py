@@ -21,7 +21,7 @@ async def get_city_center(
 
 @router.get("/api/city-hints", response_model=ApiResponse[CityHintsResponse])
 async def get_city_hints(
-    city: str = Query(min_length=1, description="城市中文名，如：西安"),
+    city: str = Query(min_length=1, description="城市中文名，如：广州"),
 ) -> ApiResponse[CityHintsResponse]:
-    """占位文案：优先 AI；未配置或失败时本地回退。"""
+    """城市推荐：事项标题 + 高德解析后的真实地点列表。"""
     return ok(await city_hints.generate_city_hints(city))

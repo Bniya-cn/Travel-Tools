@@ -21,9 +21,9 @@ export function TimelineItem({ item, onDelete, onFocusPlace, deleting }: Props) 
       <div className="timeline-item__body">
         <p className="timeline-item__kind">{isTransport ? '交通' : categoryLabel(item.category)}</p>
         <h3 className="timeline-item__title">{item.title}</h3>
-        {!isTransport && (
-          <p className="timeline-item__meta">
-            {item.description ? item.description : ''}
+        {item.description && (
+          <p className={isTransport ? 'timeline-item__steps' : 'timeline-item__meta'}>
+            {item.description}
           </p>
         )}
         {placeName && (

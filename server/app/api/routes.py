@@ -2,25 +2,38 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import AppError, ErrorCode
 from app.db.session import get_db
+from app.models.itinerary_item import ItineraryItem
 from app.models.route_segment import RouteSegment
+from app.models.trip import Trip
 from app.schemas.common import ApiResponse, ok
 from app.schemas.routes import (
     RoutePreviewRequest,
     RoutePreviewResponse,
     RouteSegmentCreate,
     RouteSegmentResponse,
+    RouteStepDTO,
 )
 from app.services import auto_transport
-from app.services.amap_routes import DEFAULT_TRANSIT_STRATEGY
+from app.services.amap_routes import DEFAULT_TRANSIT_STRATEGY, simplify_route_steps
 from app.services.preview_token import issue_preview_token
 from app.services.route_resolve import get_route_with_cache, resolve_endpoints
 
 router = APIRouter(tags=["routes"])
+
+
+def _get_trip_or_404(db: Session, trip_id: str) -> Trip:
+    trip = db.get(Trip, trip_id)
+    if trip is None:
+        raise AppError(ErrorCode.NOT_FOUND, "旅行不存在", status_code=404)
+    return trip
 
 
 async def _preview(
@@ -69,6 +82,45 @@ async def preview_walking(
     return ok(await _preview(db, payload, route_type="walking"))
 
 
+@router.get(
+    "/api/trips/{trip_id}/route-segments",
+    response_model=ApiResponse[list[RouteSegmentResponse]],
+)
+def list_trip_segments(
+    trip_id: str,
+    date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[RouteSegmentResponse]]:
+    """按旅行（可选日期）列出已保存路线段，含 polyline / steps。"""
+    _get_trip_or_404(db, trip_id)
+    stmt = (
+        select(RouteSegment)
+        .options(selectinload(RouteSegment.transport_item))
+        .where(RouteSegment.trip_id == trip_id)
+    )
+    if date is not None:
+        stmt = stmt.join(ItineraryItem, RouteSegment.transport_item_id == ItineraryItem.id).where(
+            ItineraryItem.date == date
+        )
+    segments = db.scalars(stmt.order_by(RouteSegment.created_at.asc())).all()
+
+    responses: list[RouteSegmentResponse] = []
+    for seg in segments:
+        resp = RouteSegmentResponse.model_validate(seg)
+        raw_steps = seg.steps_json or []
+        parsed: list[RouteStepDTO] = []
+        for raw in raw_steps:
+            if isinstance(raw, dict):
+                try:
+                    parsed.append(RouteStepDTO.model_validate(raw))
+                except Exception:
+                    continue
+        simplified = [s.model_dump(mode="json") for s in simplify_route_steps(parsed)]
+        resp = resp.model_copy(update={"steps_json": simplified})
+        responses.append(resp)
+    return ok(responses)
+
+
 @router.post(
     "/api/routes/segments",
     response_model=ApiResponse[RouteSegmentResponse],
@@ -91,8 +143,6 @@ async def create_segment(
 
 @router.delete("/api/routes/segments/{segment_id}", response_model=ApiResponse[dict])
 def delete_segment(segment_id: str, db: Session = Depends(get_db)) -> ApiResponse[dict]:
-    from app.models.itinerary_item import ItineraryItem
-
     segment = db.get(RouteSegment, segment_id)
     if segment is None:
         raise AppError(ErrorCode.NOT_FOUND, "路线段不存在", status_code=404)

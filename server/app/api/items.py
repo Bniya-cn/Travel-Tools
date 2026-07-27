@@ -10,11 +10,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import AppError, ErrorCode
 from app.db.session import get_db
-from app.models.itinerary_item import ItineraryItem
+from app.models.itinerary_item import ItemKind, ItineraryItem
 from app.models.place import Place
+from app.models.route_segment import RouteSegment
 from app.models.trip import Trip
 from app.schemas.common import ApiResponse, ok
 from app.schemas.itinerary import ItineraryItemCreate, ItineraryItemResponse, ItineraryItemUpdate
+from app.services.amap_routes import format_steps_summary_from_json
 from app.services.conflict import check_time_conflict
 from app.services.item_rules import ensure_date_in_trip_range, validate_item_fields
 from app.services import auto_transport
@@ -146,7 +148,27 @@ def list_items(
         ItineraryItem.start_time.asc().nulls_first(),
     )
     items = db.scalars(stmt).all()
-    return ok([_item_response(i) for i in items])
+
+    # 旧交通事项可能没有 description：从 RouteSegment.steps_json 回填可读指引
+    missing_desc_ids = [
+        i.id for i in items if i.kind == ItemKind.transport and not (i.description or "").strip()
+    ]
+    steps_by_transport: dict[str, list | None] = {}
+    if missing_desc_ids:
+        segs = db.scalars(
+            select(RouteSegment).where(RouteSegment.transport_item_id.in_(missing_desc_ids))
+        ).all()
+        steps_by_transport = {s.transport_item_id: s.steps_json for s in segs}
+
+    responses: list[ItineraryItemResponse] = []
+    for item in items:
+        resp = _item_response(item)
+        if item.kind == ItemKind.transport and not (resp.description or "").strip():
+            summary = format_steps_summary_from_json(steps_by_transport.get(item.id))
+            if summary:
+                resp = resp.model_copy(update={"description": summary})
+        responses.append(resp)
+    return ok(responses)
 
 
 @router.patch("/api/items/{item_id}", response_model=ApiResponse[ItineraryItemResponse])

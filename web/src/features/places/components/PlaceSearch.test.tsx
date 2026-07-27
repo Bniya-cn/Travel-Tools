@@ -13,6 +13,18 @@ vi.mock('../../../api/places', () => ({
   deletePlace: vi.fn(),
 }));
 
+const recommended: PlaceSearchResult[] = [
+  {
+    name: '中山大学',
+    address: '广州市海珠区新港西路135号',
+    city_name: '广州市',
+    district: '海珠区',
+    lng: 113.3,
+    lat: 23.1,
+    amap_poi_id: 'B001',
+  },
+];
+
 function renderSearch() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -22,8 +34,8 @@ function renderSearch() {
     <QueryClientProvider client={client}>
       <PlaceSearch
         tripId="t1"
-        cityName="西安"
-        searchPlaceholder="例如：兵马俑 / 陕西历史博物馆"
+        cityName="广州"
+        recommendedPlaces={recommended}
         onPlaceSaved={onPlaceSaved}
       />
     </QueryClientProvider>,
@@ -36,7 +48,14 @@ describe('PlaceSearch', () => {
     vi.clearAllMocks();
   });
 
-  it('shows loading then empty results', async () => {
+  it('shows recommended places on entry', () => {
+    renderSearch();
+    expect(screen.getByText('推荐地点')).toBeInTheDocument();
+    expect(screen.getByText('中山大学')).toBeInTheDocument();
+    expect(screen.getByText(/海珠区/)).toBeInTheDocument();
+  });
+
+  it('shows loading then empty search results', async () => {
     const user = userEvent.setup();
     let resolveSearch!: (v: PlaceSearchResult[]) => void;
     vi.mocked(placesApi.searchPlaces).mockImplementation(
@@ -47,7 +66,7 @@ describe('PlaceSearch', () => {
     );
 
     renderSearch();
-    await user.type(screen.getByPlaceholderText(/兵马俑/), '兵马俑');
+    await user.type(screen.getByPlaceholderText(/输入地点名称/), '博物馆');
     await waitFor(() => expect(screen.getByText('搜索中…')).toBeInTheDocument());
 
     resolveSearch([]);

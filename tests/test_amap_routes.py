@@ -56,9 +56,13 @@ async def test_transit_ok(monkeypatch: pytest.MonkeyPatch) -> None:
                             "bus": {
                                 "buslines": [
                                     {
-                                        "name": "地铁2号线",
+                                        "name": "地铁2号线(韦曲南--北客站)",
+                                        "type": "地铁线路",
                                         "distance": "10000",
                                         "duration": "1200",
+                                        "via_num": "5",
+                                        "departure_stop": {"name": "北大街"},
+                                        "arrival_stop": {"name": "小寨"},
                                         "polyline": "108.95,34.27;108.96,34.28",
                                     }
                                 ]
@@ -85,6 +89,61 @@ async def test_transit_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     assert dto.route_type == "transit"
     assert dto.duration_seconds == 2400
     assert len(dto.polyline) >= 2
+    transit_steps = [s for s in dto.steps if s.mode == "transit"]
+    assert len(transit_steps) == 1
+    assert transit_steps[0].departure_stop == "北大街"
+    assert transit_steps[0].arrival_stop == "小寨"
+    assert transit_steps[0].via_num == 5
+    assert transit_steps[0].instruction is not None
+    assert "北大街" in transit_steps[0].instruction
+    assert "小寨" in transit_steps[0].instruction
+    assert "共 6 站" in transit_steps[0].instruction
+
+
+def test_format_transit_instruction() -> None:
+    text = amap_routes.format_transit_instruction(
+        line_name="地铁2号线(韦曲南--北客站)",
+        line_type="地铁线路",
+        departure_stop="北大街",
+        arrival_stop="小寨",
+        via_num=5,
+    )
+    assert text == "地铁2号线 · 北大街上车 → 小寨下车 · 共 6 站"
+
+
+def test_format_route_steps_summary() -> None:
+    from app.schemas.routes import RouteStepDTO
+
+    summary = amap_routes.format_route_steps_summary(
+        [
+            RouteStepDTO(instruction="步行至地铁站", mode="walking", distance_meters=200),
+            RouteStepDTO(
+                instruction="地铁2号线 · 北大街上车 → 小寨下车 · 共 6 站",
+                mode="transit",
+            ),
+        ]
+    )
+    assert summary is not None
+    assert "步行约 200 米" in summary
+    assert "地铁2号线" in summary
+    assert "步行至地铁站" not in summary
+
+
+def test_simplify_route_steps_merges_walk() -> None:
+    from app.schemas.routes import RouteStepDTO
+
+    out = amap_routes.simplify_route_steps(
+        [
+            RouteStepDTO(instruction="步行43米右转", mode="walking", distance_meters=43),
+            RouteStepDTO(instruction="步行114米左转", mode="walking", distance_meters=114),
+            RouteStepDTO(instruction="地铁1号线", mode="transit"),
+            RouteStepDTO(instruction="步行78米", mode="walking", distance_meters=78),
+        ]
+    )
+    assert len(out) == 3
+    assert out[0].instruction == "步行约 157 米"
+    assert out[1].mode == "transit"
+    assert out[2].instruction == "步行约 78 米"
 
 
 @pytest.mark.asyncio

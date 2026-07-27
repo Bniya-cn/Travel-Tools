@@ -16,6 +16,7 @@ from app.utils.datetime import utc_now
 if TYPE_CHECKING:
     from app.models.itinerary_item import ItineraryItem
     from app.models.trip import Trip
+    from app.models.trip_place import TripPlace
 
 
 class Place(Base):
@@ -46,3 +47,4 @@ class Place(Base):
 
     trip: Mapped[Trip] = relationship("Trip", back_populates="places")
     items: Mapped[list[ItineraryItem]] = relationship("ItineraryItem", back_populates="place")
+    trip_places: Mapped[list[TripPlace]] = relationship("TripPlace", back_populates="place")

@@ -15,7 +15,9 @@ from app.utils.datetime import utc_now
 if TYPE_CHECKING:
     from app.models.itinerary_item import ItineraryItem
     from app.models.place import Place
+    from app.models.route_plan_draft import RoutePlanDraft
     from app.models.route_segment import RouteSegment
+    from app.models.trip_place import TripPlace
 
 
 class Trip(Base):
@@ -48,6 +50,16 @@ class Trip(Base):
     )
     route_segments: Mapped[list[RouteSegment]] = relationship(
         "RouteSegment",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+    )
+    trip_places: Mapped[list[TripPlace]] = relationship(
+        "TripPlace",
+        back_populates="trip",
+        cascade="all, delete-orphan",
+    )
+    route_plan_drafts: Mapped[list[RoutePlanDraft]] = relationship(
+        "RoutePlanDraft",
         back_populates="trip",
         cascade="all, delete-orphan",
     )

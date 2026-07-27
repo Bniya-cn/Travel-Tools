@@ -20,8 +20,8 @@ export function Timeline({ items, loading, onDelete, onFocusPlace, deletingId }:
   if (items.length === 0) {
     return (
       <div className="md-empty">
-        <p>这一天还没有安排</p>
-        <p className="md-muted">可先搜索并保存地点，再添加日程事项</p>
+        <p>这一天还没有已保存行程</p>
+        <p className="md-muted">在上方排好顺序并「生成路线」后，点「保存行程」即可写入这里</p>
       </div>
     );
   }

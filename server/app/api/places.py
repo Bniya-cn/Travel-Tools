@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models.itinerary_item import ItineraryItem
 from app.models.place import Place
 from app.models.trip import Trip
+from app.models.trip_place import TripPlace, TripPlaceStatus
 from app.schemas.common import ApiResponse, ok
 from app.schemas.place import PlaceCreate, PlaceResponse, PlaceSearchResult, PlaceUpdate
 from app.services import amap_places as amap_places_service
@@ -73,6 +74,29 @@ def create_place(
             )
         )
         if existing is not None:
+            # 确保地点池有对应条目
+            existing_tp = db.scalar(
+                select(TripPlace).where(TripPlace.trip_id == trip_id, TripPlace.place_id == existing.id)
+            )
+            if existing_tp is None:
+                max_idx = db.scalar(
+                    select(func.coalesce(func.max(TripPlace.order_index), -1)).where(
+                        TripPlace.trip_id == trip_id
+                    )
+                )
+                db.add(
+                    TripPlace(
+                        trip_id=trip_id,
+                        place_id=existing.id,
+                        status=TripPlaceStatus.candidate,
+                        order_index=int(max_idx) + 1,
+                    )
+                )
+                db.commit()
+            elif existing_tp.status == TripPlaceStatus.removed:
+                existing_tp.status = TripPlaceStatus.candidate
+                existing_tp.updated_at = utc_now()
+                db.commit()
             return ok(PlaceResponse.model_validate(existing))
 
     place = Place(
@@ -86,6 +110,25 @@ def create_place(
         lat=Decimal(str(round(payload.lat, 6))),
     )
     db.add(place)
+    db.flush()
+
+    # 同步进入地点池（幂等）
+    existing_tp = db.scalar(
+        select(TripPlace).where(TripPlace.trip_id == trip_id, TripPlace.place_id == place.id)
+    )
+    if existing_tp is None:
+        max_idx = db.scalar(
+            select(func.coalesce(func.max(TripPlace.order_index), -1)).where(TripPlace.trip_id == trip_id)
+        )
+        db.add(
+            TripPlace(
+                trip_id=trip_id,
+                place_id=place.id,
+                status=TripPlaceStatus.candidate,
+                order_index=int(max_idx) + 1,
+            )
+        )
+
     db.commit()
     db.refresh(place)
     return ok(PlaceResponse.model_validate(place))
@@ -124,6 +167,10 @@ def delete_place(place_id: str, db: Session = Depends(get_db)) -> ApiResponse[di
             details={"item_count": int(in_use)},
             status_code=409,
         )
+    # 先删地点池引用，避免 ORM 把 place_id 置空触发 NOT NULL
+    for tp in db.scalars(select(TripPlace).where(TripPlace.place_id == place_id)).all():
+        db.delete(tp)
+    db.flush()
     db.delete(place)
     db.commit()
     return ok({"ok": True})

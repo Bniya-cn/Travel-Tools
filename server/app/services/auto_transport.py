@@ -13,6 +13,7 @@ from app.core.errors import AppError, ErrorCode
 from app.models.itinerary_item import ItemKind, ItineraryItem
 from app.models.route_segment import RouteSegment
 from app.schemas.routes import RouteDTO, RouteSegmentResponse
+from app.services.amap_routes import format_route_steps_summary
 from app.services.preview_token import verify_preview_token
 from app.services.route_resolve import RouteEndpoints, get_route_with_cache, resolve_endpoints
 from app.utils.datetime import utc_now
@@ -122,7 +123,8 @@ async def persist_route_segment(
 
     title = f"前往{endpoints.destination.name}"
     if any((s.mode == "transit") for s in route.steps):
-        title = f"公交前往{endpoints.destination.name}"
+        title = f"公交/地铁前往{endpoints.destination.name}"
+    description = format_route_steps_summary(route.steps)
 
     existing = db.scalar(
         select(RouteSegment).where(
@@ -144,7 +146,7 @@ async def persist_route_segment(
                 kind=ItemKind.transport,
                 category=None,
                 title=title,
-                description=None,
+                description=description,
                 sort_order=0,
             )
             db.add(transport)
@@ -181,6 +183,7 @@ async def persist_route_segment(
             transport.start_time = start_time
             transport.end_time = end_time
             transport.title = title
+            transport.description = description
             transport.updated_at = utc_now()
             existing.route_type = route_type
             existing.strategy = strat

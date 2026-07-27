@@ -149,3 +149,114 @@ async def get_route_with_cache(
         time_bucket=endpoints.time_bucket,
     )
     return route, False
+
+
+@dataclass
+class PlacePairEndpoints:
+    trip: Trip
+    origin: Place
+    destination: Place
+    origin_lng: float
+    origin_lat: float
+    dest_lng: float
+    dest_lat: float
+    route_date: date
+    depart_time: time
+    time_bucket: str
+    nightflag: bool
+
+
+def resolve_place_pair(
+    db: Session,
+    *,
+    trip_id: str,
+    origin_place_id: str,
+    destination_place_id: str,
+    route_date: date,
+    depart_time: time,
+) -> PlacePairEndpoints:
+    trip = db.get(Trip, trip_id)
+    if trip is None:
+        raise AppError(ErrorCode.NOT_FOUND, "旅行不存在", status_code=404)
+    origin = db.get(Place, origin_place_id)
+    destination = db.get(Place, destination_place_id)
+    if origin is None or destination is None:
+        raise AppError(ErrorCode.NOT_FOUND, "地点不存在", status_code=404)
+    if origin.trip_id != trip_id or destination.trip_id != trip_id:
+        raise AppError(ErrorCode.VALIDATION_ERROR, "地点必须属于该旅行", status_code=422)
+    return PlacePairEndpoints(
+        trip=trip,
+        origin=origin,
+        destination=destination,
+        origin_lng=_dec(origin.lng),
+        origin_lat=_dec(origin.lat),
+        dest_lng=_dec(destination.lng),
+        dest_lat=_dec(destination.lat),
+        route_date=route_date,
+        depart_time=depart_time,
+        time_bucket=get_time_bucket(depart_time),
+        nightflag=nightflag_from_time(depart_time),
+    )
+
+
+async def get_route_for_place_pair(
+    db: Session,
+    endpoints: PlacePairEndpoints,
+    *,
+    route_type: str,
+    strategy: int,
+) -> tuple[RouteDTO, bool]:
+    """Fetch route between two Places (draft preview — no Items required)."""
+    cache_key = route_cache_service.make_cache_key(
+        route_type=route_type,
+        origin_place_id=endpoints.origin.id,
+        destination_place_id=endpoints.destination.id,
+        origin_lng=endpoints.origin_lng,
+        origin_lat=endpoints.origin_lat,
+        dest_lng=endpoints.dest_lng,
+        dest_lat=endpoints.dest_lat,
+        strategy=strategy,
+        city=endpoints.trip.city_name,
+        nightflag=endpoints.nightflag,
+        route_date=endpoints.route_date,
+        time_bucket=endpoints.time_bucket,
+    )
+    cached = route_cache_service.get_fresh_cache(db, cache_key)
+    if cached is not None:
+        return cached, True
+
+    if route_type == "transit":
+        route = await amap_routes.fetch_transit_route(
+            origin_lng=endpoints.origin_lng,
+            origin_lat=endpoints.origin_lat,
+            dest_lng=endpoints.dest_lng,
+            dest_lat=endpoints.dest_lat,
+            city_name=endpoints.trip.city_name,
+            strategy=strategy,
+            nightflag=endpoints.nightflag,
+        )
+    elif route_type == "walking":
+        route = await amap_routes.fetch_walking_route(
+            origin_lng=endpoints.origin_lng,
+            origin_lat=endpoints.origin_lat,
+            dest_lng=endpoints.dest_lng,
+            dest_lat=endpoints.dest_lat,
+        )
+        route = route.model_copy(update={"strategy": strategy})
+    else:
+        raise AppError(ErrorCode.VALIDATION_ERROR, "不支持的路线类型", status_code=422)
+
+    route_cache_service.put_cache(
+        db,
+        cache_key=cache_key,
+        route=route,
+        origin_lng=endpoints.origin_lng,
+        origin_lat=endpoints.origin_lat,
+        dest_lng=endpoints.dest_lng,
+        dest_lat=endpoints.dest_lat,
+        city=endpoints.trip.city_name,
+        nightflag=endpoints.nightflag,
+        route_date=endpoints.route_date,
+        time_bucket=endpoints.time_bucket,
+    )
+    return route, False
