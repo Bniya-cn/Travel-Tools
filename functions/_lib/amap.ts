@@ -102,7 +102,11 @@ export async function route(env: Env, kind: 'transit' | 'walking', start: [numbe
     const points = steps.flatMap((step) => polyline(step.polyline));
     return { route_type: 'walking', strategy: 0, duration_seconds: number(first.duration), distance_meters: number(first.distance), walking_distance_meters: number(first.distance), transfer_count: 0, polyline: points.length ? points : polyline(first.polyline), steps: steps.map((step) => ({ instruction: step.instruction ?? null, distance_meters: number(step.distance), duration_seconds: number(step.duration), mode: 'walking' })), provider: 'amap', provider_version: 'v5.1' };
   }
-  const data = await amap('https://restapi.amap.com/v5/direction/transit/integrated', { key: key(env), origin, destination, city1: city ?? '', city2: city ?? '', strategy });
+  // 与原 FastAPI 服务保持一致：公交规划使用 v3 接口及 city/cityd 参数。
+  const data = await amap('https://restapi.amap.com/v3/direction/transit/integrated', {
+    key: key(env), origin, destination, city: city ?? '', cityd: city ?? '', strategy,
+    AlternativeRoute: 1, nightflag: 0, extensions: 'all',
+  });
   const transits = ((data.route as Record<string, unknown> | undefined)?.transits ?? []) as unknown[];
   const first = transits[0] as Record<string, unknown> | undefined;
   if (!first) throw new AppError('AMAP_SERVICE_ERROR', '高德未返回公交路线', 502);
