@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import {
   CityPicker,
   type CityPickerValue,
@@ -8,6 +9,7 @@ import { useCreateTrip, useDeleteTrip, useTrips } from '../hooks/useTrips';
 import { ApiClientError } from '../types/api';
 
 export function TripListPage() {
+  const { user, logout } = useAuth();
   const { data: trips, isLoading, error } = useTrips();
   const createTrip = useCreateTrip();
   const deleteTrip = useDeleteTrip();
@@ -60,6 +62,12 @@ export function TripListPage() {
         <div>
           <p className="app-bar__eyebrow">Travel Planner</p>
           <h1>我的旅行</h1>
+        </div>
+        <div className="account-chip">
+          <span>{user?.display_name || user?.account}</span>
+          <button type="button" className="md-btn md-btn--text" onClick={() => void logout()}>
+            退出
+          </button>
         </div>
       </header>
 

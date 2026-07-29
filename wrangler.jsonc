@@ -8,6 +8,7 @@
 			"binding": "DB",
 			"database_name": "travel-planner-db",
 			"database_id": "afc417a9-c5bb-49d4-b6cb-f850c4c3ad55",
+			"preview_database_id": "DB",
 			"migrations_dir": "functions/db/migrations"
 		},
 	]

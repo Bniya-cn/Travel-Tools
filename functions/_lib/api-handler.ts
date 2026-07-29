@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { handleAuth, requireUser } from './auth';
 import { cityCenter, route as amapRoute, searchPlaces, type Route } from './amap';
 import { AppError, apiError, body, digest, hmac, id, now, ok, parseJson, stringParam, toNumber, type Env } from './runtime';
 
@@ -28,15 +29,16 @@ async function all(env: Env, sql: string, ...params: unknown[]): Promise<Row[]> 
 async function one(env: Env, sql: string, ...params: unknown[]): Promise<Row | null> { return env.DB.prepare(sql).bind(...params).first(); }
 async function run(env: Env, sql: string, ...params: unknown[]): Promise<void> { await env.DB.prepare(sql).bind(...params).run(); }
 function dateInTrip(date: string, trip: Row): void { if (date < String(trip.start_date) || date > String(trip.end_date)) throw new AppError('VALIDATION_ERROR', '日期必须在旅行范围内', 422); }
-function recordTrip(row: Row, itemsCount?: number): Row { return { ...row, items_count: itemsCount ?? row.items_count ?? null }; }
+function recordTrip(row: Row, itemsCount?: number): Row { const { user_id: _userId, ...trip } = row; return { ...trip, items_count: itemsCount ?? row.items_count ?? null }; }
 function recordPlace(row: Row): Row { return { ...row, lng: toNumber(row.lng), lat: toNumber(row.lat) }; }
 function recordItem(row: Row): Row { return { ...row, is_all_day: Boolean(row.is_all_day), place: row.place_id ? { id: row.place_id, trip_id: row.place_trip_id, amap_poi_id: row.amap_poi_id, name: row.place_name, address: row.place_address, city_name: row.place_city_name, district: row.place_district, lng: row.place_lng === null ? null : toNumber(row.place_lng), lat: row.place_lat === null ? null : toNumber(row.place_lat), created_at: row.place_created_at, updated_at: row.place_updated_at } : null }; }
 function routeFrom(row: Row): Route { return { route_type: String(row.route_type) as 'transit' | 'walking', strategy: toNumber(row.strategy), duration_seconds: toNumber(row.duration_seconds), distance_meters: toNumber(row.distance_meters), walking_distance_meters: row.walking_distance_meters === null ? null : toNumber(row.walking_distance_meters), transfer_count: toNumber(row.transfer_count), polyline: parseJson(row.polyline_json, []), steps: parseJson(row.steps_json, []), provider: String(row.provider ?? 'amap'), provider_version: String(row.provider_version ?? 'v5.1') }; }
 
-async function tripOr404(env: Env, tripId: string): Promise<Row> { const trip = await one(env, 'SELECT * FROM trips WHERE id = ?', tripId); if (!trip) throw new AppError('NOT_FOUND', '旅行不存在', 404); return trip; }
-async function placeOr404(env: Env, placeId: string): Promise<Row> { const place = await one(env, 'SELECT * FROM places WHERE id = ?', placeId); if (!place) throw new AppError('NOT_FOUND', '地点不存在', 404); return place; }
-async function itemOr404(env: Env, itemId: string): Promise<Row> { const item = await one(env, 'SELECT * FROM itinerary_items WHERE id = ?', itemId); if (!item) throw new AppError('NOT_FOUND', '事项不存在', 404); return item; }
-async function withItemPlace(env: Env, itemId: string): Promise<Row> { const item = await one(env, `SELECT i.*, p.trip_id AS place_trip_id, p.amap_poi_id, p.name AS place_name, p.address AS place_address, p.city_name AS place_city_name, p.district AS place_district, p.lng AS place_lng, p.lat AS place_lat, p.created_at AS place_created_at, p.updated_at AS place_updated_at FROM itinerary_items i LEFT JOIN places p ON p.id = i.place_id WHERE i.id = ?`, itemId); if (!item) throw new AppError('NOT_FOUND', '事项不存在', 404); return recordItem(item); }
+function currentUserId(env: Env): string { if (!env.CURRENT_USER_ID) throw new AppError('AUTH_REQUIRED', '请先登录', 401); return env.CURRENT_USER_ID; }
+async function tripOr404(env: Env, tripId: string): Promise<Row> { const trip = await one(env, 'SELECT * FROM trips WHERE id = ? AND user_id = ?', tripId, currentUserId(env)); if (!trip) throw new AppError('NOT_FOUND', '旅行不存在', 404); return trip; }
+async function placeOr404(env: Env, placeId: string): Promise<Row> { const place = await one(env, 'SELECT p.* FROM places p JOIN trips t ON t.id = p.trip_id WHERE p.id = ? AND t.user_id = ?', placeId, currentUserId(env)); if (!place) throw new AppError('NOT_FOUND', '地点不存在', 404); return place; }
+async function itemOr404(env: Env, itemId: string): Promise<Row> { const item = await one(env, 'SELECT i.* FROM itinerary_items i JOIN trips t ON t.id = i.trip_id WHERE i.id = ? AND t.user_id = ?', itemId, currentUserId(env)); if (!item) throw new AppError('NOT_FOUND', '事项不存在', 404); return item; }
+async function withItemPlace(env: Env, itemId: string): Promise<Row> { const item = await one(env, `SELECT i.*, p.trip_id AS place_trip_id, p.amap_poi_id, p.name AS place_name, p.address AS place_address, p.city_name AS place_city_name, p.district AS place_district, p.lng AS place_lng, p.lat AS place_lat, p.created_at AS place_created_at, p.updated_at AS place_updated_at FROM itinerary_items i JOIN trips t ON t.id = i.trip_id LEFT JOIN places p ON p.id = i.place_id WHERE i.id = ? AND t.user_id = ?`, itemId, currentUserId(env)); if (!item) throw new AppError('NOT_FOUND', '事项不存在', 404); return recordItem(item); }
 
 async function signedPreview(env: Env, tripId: string, afterItemId: string, beforeItemId: string, route: Route): Promise<string> {
   const expires = Math.floor(Date.now() / 1000) + 600;
@@ -77,7 +79,7 @@ async function resolveRoute(env: Env, afterItemId: string, beforeItemId: string,
 }
 
 async function listTrips(env: Env): Promise<Response> {
-  const data = await all(env, `SELECT t.*, COUNT(i.id) AS items_count FROM trips t LEFT JOIN itinerary_items i ON i.trip_id = t.id GROUP BY t.id ORDER BY t.start_date DESC, t.created_at DESC`);
+  const data = await all(env, `SELECT t.*, COUNT(i.id) AS items_count FROM trips t LEFT JOIN itinerary_items i ON i.trip_id = t.id WHERE t.user_id = ? GROUP BY t.id ORDER BY t.start_date DESC, t.created_at DESC`, currentUserId(env));
   return ok(data.map((row) => recordTrip(row, toNumber(row.items_count))));
 }
 
@@ -87,7 +89,7 @@ async function trips(request: Request, env: Env, segments: string[]): Promise<Re
     if (request.method === 'GET') return listTrips(env);
     if (request.method === 'POST') {
       const data = await body(request, tripInput); const createdAt = now(); const trip = { id: id(), ...data, notes: data.notes ?? null, created_at: createdAt, updated_at: createdAt };
-      await run(env, 'INSERT INTO trips (id, name, city_name, timezone, start_date, end_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', trip.id, trip.name, trip.city_name, trip.timezone, trip.start_date, trip.end_date, trip.notes, createdAt, createdAt);
+      await run(env, 'INSERT INTO trips (id, user_id, name, city_name, timezone, start_date, end_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', trip.id, currentUserId(env), trip.name, trip.city_name, trip.timezone, trip.start_date, trip.end_date, trip.notes, createdAt, createdAt);
       return ok(recordTrip(trip, 0), 201);
     }
     throw new AppError('NOT_FOUND', '接口不存在', 404);
@@ -195,16 +197,19 @@ export const onRequest = async (context: Context): Promise<Response> => {
   try {
     const path = context.params.path ?? [];
     const { request, env } = context;
-    if (path[0] === 'trips') return trips(request, env, path);
-    if (path[0] === 'items' && path[1]) return item(request, env, path[1]);
-    if (path[0] === 'places' && path[1] === 'search' && request.method === 'GET') { const url = new URL(request.url); return ok(await searchPlaces(env, stringParam(url.searchParams.get('keyword'), 'keyword'), stringParam(url.searchParams.get('city'), 'city'))); }
-    if (path[0] === 'places' && path[1]) return place(request, env, path[1]);
-    if (path[0] === 'geo' && path[1] === 'city-center' && request.method === 'GET') return ok(await cityCenter(env, stringParam(new URL(request.url).searchParams.get('city'), 'city')));
-    if (path[0] === 'city-hints' && request.method === 'GET') { const city = stringParam(new URL(request.url).searchParams.get('city'), 'city'); const fallback = { 广州: ['中山大学', '陈家祠', '白云山', '沙面'], 西安: ['西安城墙', '兵马俑', '陕西历史博物馆'], 成都: ['宽窄巷子', '成都大熊猫繁育研究基地', '锦里'], 北京: ['故宫博物院', '天安门广场', '颐和园'], 上海: ['外滩', '东方明珠', '豫园'] } as Record<string, string[]>; const names = fallback[city] ?? [`${city}博物馆`, `${city}公园`]; const places = (await Promise.all(names.map(async (name) => (await searchPlaces(env, name, city))[0] ?? null))).filter(Boolean); return ok({ city_name: city, titles: names.map((name) => `游览${name}`), places, source: 'fallback' }); }
-    if (path[0] === 'routes' && path[1] === 'transit' && path[2] === 'preview' && request.method === 'POST') return routePreview(request, env, 'transit');
-    if (path[0] === 'routes' && path[1] === 'walking' && path[2] === 'preview' && request.method === 'POST') return routePreview(request, env, 'walking');
-    if (path[0] === 'routes' && path[1] === 'segments' && request.method === 'POST') return createSegment(request, env);
-    if (path[0] === 'routes' && path[1] === 'segments' && path[2] && request.method === 'DELETE') { const segment = await one(env, 'SELECT * FROM route_segments WHERE id = ?', path[2]); if (!segment) throw new AppError('NOT_FOUND', '路线段不存在', 404); await run(env, 'DELETE FROM route_segments WHERE id = ?', path[2]); await run(env, 'DELETE FROM itinerary_items WHERE id = ?', segment.transport_item_id); return ok({ ok: true }); }
+    if (path[0] === 'auth') return handleAuth(request, env, path[1]);
+    const user = await requireUser(request, env);
+    const scopedEnv = { ...env, CURRENT_USER_ID: user.id, CURRENT_USER_ACCOUNT: user.account };
+    if (path[0] === 'trips') return trips(request, scopedEnv, path);
+    if (path[0] === 'items' && path[1]) return item(request, scopedEnv, path[1]);
+    if (path[0] === 'places' && path[1] === 'search' && request.method === 'GET') { const url = new URL(request.url); return ok(await searchPlaces(scopedEnv, stringParam(url.searchParams.get('keyword'), 'keyword'), stringParam(url.searchParams.get('city'), 'city'))); }
+    if (path[0] === 'places' && path[1]) return place(request, scopedEnv, path[1]);
+    if (path[0] === 'geo' && path[1] === 'city-center' && request.method === 'GET') return ok(await cityCenter(scopedEnv, stringParam(new URL(request.url).searchParams.get('city'), 'city')));
+    if (path[0] === 'city-hints' && request.method === 'GET') { const city = stringParam(new URL(request.url).searchParams.get('city'), 'city'); const fallback = { 广州: ['中山大学', '陈家祠', '白云山', '沙面'], 西安: ['西安城墙', '兵马俑', '陕西历史博物馆'], 成都: ['宽窄巷子', '成都大熊猫繁育研究基地', '锦里'], 北京: ['故宫博物院', '天安门广场', '颐和园'], 上海: ['外滩', '东方明珠', '豫园'] } as Record<string, string[]>; const names = fallback[city] ?? [`${city}博物馆`, `${city}公园`]; const places = (await Promise.all(names.map(async (name) => (await searchPlaces(scopedEnv, name, city))[0] ?? null))).filter(Boolean); return ok({ city_name: city, titles: names.map((name) => `游览${name}`), places, source: 'fallback' }); }
+    if (path[0] === 'routes' && path[1] === 'transit' && path[2] === 'preview' && request.method === 'POST') return routePreview(request, scopedEnv, 'transit');
+    if (path[0] === 'routes' && path[1] === 'walking' && path[2] === 'preview' && request.method === 'POST') return routePreview(request, scopedEnv, 'walking');
+    if (path[0] === 'routes' && path[1] === 'segments' && request.method === 'POST') return createSegment(request, scopedEnv);
+    if (path[0] === 'routes' && path[1] === 'segments' && path[2] && request.method === 'DELETE') { const segment = await one(scopedEnv, 'SELECT s.* FROM route_segments s JOIN trips t ON t.id = s.trip_id WHERE s.id = ? AND t.user_id = ?', path[2], currentUserId(scopedEnv)); if (!segment) throw new AppError('NOT_FOUND', '路线段不存在', 404); await run(scopedEnv, 'DELETE FROM route_segments WHERE id = ?', path[2]); await run(scopedEnv, 'DELETE FROM itinerary_items WHERE id = ?', segment.transport_item_id); return ok({ ok: true }); }
     throw new AppError('NOT_FOUND', '接口不存在', 404);
   } catch (error) {
     return apiError(error);

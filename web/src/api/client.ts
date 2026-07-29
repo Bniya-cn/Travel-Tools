@@ -14,6 +14,7 @@ const baseURL = import.meta.env.PROD
 export const http: AxiosInstance = axios.create({
   baseURL,
   timeout: 15000,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
   },

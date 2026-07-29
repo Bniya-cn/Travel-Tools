@@ -98,12 +98,117 @@ a {
   color: var(--md-muted);
 }
 
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background:
+    radial-gradient(circle at 16% 12%, rgb(255 216 230 / 65%), transparent 22rem),
+    radial-gradient(circle at 86% 86%, rgb(255 235 242 / 85%), transparent 26rem),
+    var(--md-bg);
+}
+
+.auth-panel {
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: clamp(1rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.auth-panel__brand span {
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.auth-panel__brand h1 {
+  margin: 0.35rem 0 0.75rem;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.05;
+}
+
+.auth-panel__brand p {
+  max-width: 28rem;
+  color: var(--md-muted);
+  font-size: 1.05rem;
+}
+
+.auth-panel__card {
+  padding: 1.25rem;
+  border: 1px solid var(--md-border);
+  border-radius: 20px;
+  background: rgb(255 253 253 / 92%);
+  box-shadow: var(--md-shadow);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: #fff2f7;
+}
+
+.auth-tabs button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--md-muted);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.auth-tabs button.is-active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 10px 20px rgb(232 82 136 / 18%);
+}
+
+.auth-submit {
+  width: 100%;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--md-border);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+
+.account-chip span {
+  padding-left: 0.8rem;
+  color: var(--md-muted);
+  font-weight: 700;
+}
+
 .md-field {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   margin-bottom: 0.85rem;
   font-size: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .auth-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-panel__brand h1 {
+    font-size: 2.4rem;
+  }
+
+  .account-chip {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .md-field span {
@@ -632,6 +737,10 @@ a {
 
 .app-bar {
   margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .app-bar__eyebrow {

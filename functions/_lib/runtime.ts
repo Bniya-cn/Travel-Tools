@@ -19,6 +19,8 @@ export interface D1Database {
 
 export interface Env {
   DB: D1Database;
+  CURRENT_USER_ID?: string;
+  CURRENT_USER_ACCOUNT?: string;
   AMAP_WEB_SERVICE_KEY?: string;
   AI_API_BASE_URL?: string;
   AI_API_KEY?: string;
@@ -40,8 +42,11 @@ export class AppError extends Error {
 function defaultStatus(code: string): number {
   return ({
     VALIDATION_ERROR: 422,
+    AUTH_REQUIRED: 401,
+    INVALID_CREDENTIALS: 401,
     NOT_FOUND: 404,
     CONFLICT: 409,
+    ACCOUNT_EXISTS: 409,
     ITEM_TIME_CONFLICT: 409,
     TRIP_DATE_RANGE_HAS_ITEMS: 409,
     PLACE_IN_USE: 409,
