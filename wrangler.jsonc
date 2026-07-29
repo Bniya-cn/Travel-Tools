@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "travel-planner-web",
+	"name": "mytravel-bniya-2026",
 	"compatibility_date": "2026-07-29",
 	"pages_build_output_dir": "./web/dist",
 	"d1_databases": [
@@ -10,11 +10,5 @@
 			"database_id": "afc417a9-c5bb-49d4-b6cb-f850c4c3ad55",
 			"migrations_dir": "functions/db/migrations"
 		},
-		{
-			"binding": "travel_planner_db",
-			"database_name": "travel-planner-db",
-			"database_id": "afc417a9-c5bb-49d4-b6cb-f850c4c3ad55",
-			"remote": true
-		}
 	]
 }

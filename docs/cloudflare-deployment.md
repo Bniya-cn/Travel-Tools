@@ -4,7 +4,7 @@
 
 1. 在已登录的 Cloudflare 账户创建 D1：`travel-planner-db`。
 2. 将 Cloudflare 返回的 database ID 写入 `wrangler.jsonc` 的 `database_id`，不要提交真实环境变量。
-3. 创建 Pages 项目：`travel-planner-web`，构建命令为 `npm run build`，输出目录为 `web/dist`。
+3. Pages 项目实际名称为 `mytravel-bniya-2026`，构建命令为 `npm run build`，输出目录为 `web/dist`。
 4. Pages 构建变量：`VITE_API_BASE_URL=`、`VITE_AMAP_JS_KEY`、`VITE_AMAP_SECURITY_CODE`。
 5. Pages Functions Secret：`AMAP_WEB_SERVICE_KEY`、`AI_API_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`PREVIEW_TOKEN_SECRET`；D1 binding 名称固定为 `DB`。
 
@@ -13,10 +13,10 @@
 ```bash
 WRANGLER_LOG_PATH=/tmp/travel-planner-wrangler.log npx wrangler d1 migrations apply DB --remote
 npm run build
-npx wrangler pages deploy web/dist --project-name travel-planner-web
+npx wrangler pages deploy web/dist --project-name mytravel-bniya-2026
 ```
 
-先验证生成的 `travel-planner-web.pages.dev`。Pages 项目名若因全局占用发生变化，必须同时更新 DNS CNAME 与本文件，不能猜测目标地址。
+先验证生成的 `mytravel-bniya-2026.pages.dev`；每次部署产生的版本地址可能带随机前缀，以 Cloudflare 控制台实际显示为准。
 
 ## 域名与 DNS
 
@@ -24,7 +24,7 @@ npx wrangler pages deploy web/dist --project-name travel-planner-web
 
 1. 在 Cloudflare 添加并委派 `mytravel.bbroot.com`；记录控制台生成的两条 NS。
 2. 在 DNSHE 以这两条实际 NS 替换当前 `ns1.dnshe.com`、`ns2.dnshe.com`。
-3. Cloudflare 成为权威 DNS 后，通过 Pages 自定义域向导创建 `@ CNAME travel-planner-web.pages.dev`（已代理）。DNSHE 的 `@` 与 `api` 不创建 A、AAAA 或 CNAME。
+3. Cloudflare 成为权威 DNS 后，通过 Pages 自定义域向导创建 `@ CNAME mytravel-bniya-2026.pages.dev`（已代理）。DNSHE 的 `@` 与 `api` 不创建 A、AAAA 或 CNAME。
 4. 等待 Cloudflare 显示 Active 后，再验证：
 
 ```bash

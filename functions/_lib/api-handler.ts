@@ -5,17 +5,18 @@ import { AppError, apiError, body, digest, hmac, id, now, ok, parseJson, stringP
 type Context = { request: Request; env: Env; params: { path?: string[] } };
 type Row = Record<string, unknown>;
 
-const tripInput = z.object({
+const tripFields = z.object({
   name: z.string().trim().min(1).max(100),
   city_name: z.string().trim().min(1).max(100),
   timezone: z.string().trim().min(1).max(50).default('Asia/Shanghai'),
   start_date: z.string().date(),
   end_date: z.string().date(),
   notes: z.string().nullable().optional(),
-}).superRefine((value, context) => {
+});
+const tripInput = tripFields.superRefine((value, context) => {
   if (value.end_date < value.start_date) context.addIssue({ code: 'custom', message: 'end_date 必须大于或等于 start_date', path: ['end_date'] });
 });
-const tripPatch = tripInput.partial();
+const tripPatch = tripFields.partial();
 const placeInput = z.object({ name: z.string().trim().min(1).max(200), amap_poi_id: z.string().max(100).nullable().optional(), address: z.string().max(500).nullable().optional(), city_name: z.string().max(100).nullable().optional(), district: z.string().max(100).nullable().optional(), lng: z.number().finite(), lat: z.number().finite() });
 const placePatch = placeInput.partial();
 const itemInput = z.object({ date: z.string().date(), start_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(), end_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(), is_all_day: z.boolean().default(false), kind: z.enum(['activity', 'transport']).default('activity'), category: z.enum(['place', 'meal', 'hotel', 'rest', 'custom']).nullable().optional(), title: z.string().trim().min(1).max(200), description: z.string().nullable().optional(), sort_order: z.number().int().default(0), place_id: z.string().uuid().nullable().optional() });
