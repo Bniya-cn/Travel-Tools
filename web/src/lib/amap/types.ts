@@ -54,6 +54,7 @@ export type AMapNamespace = {
     strokeColor?: string;
     strokeWeight?: number;
     strokeOpacity?: number;
+    strokeStyle?: 'solid' | 'dashed';
   }) => AMapPolyline;
 };
 
@@ -65,5 +66,3 @@ declare global {
     };
   }
 }
-
-export {};

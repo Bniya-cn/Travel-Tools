@@ -6,7 +6,14 @@ export type MarkerData = {
   title: string;
   /** Optional map label e.g. "①" */
   label?: string;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
 };
+
+function labelContent(item: MarkerData): string | undefined {
+  if (!item.label) return undefined;
+  return `<span class="amap-marker-label${item.selected ? ' is-selected' : ''}">${item.label}</span>`;
+}
 
 /**
  * Diff-based marker manager — avoids recreating all markers on every update.
@@ -46,7 +53,7 @@ export class MarkerManager {
         }
         if (item.label && typeof (existing as { setLabel?: (o: unknown) => void }).setLabel === 'function') {
           (existing as { setLabel: (o: unknown) => void }).setLabel({
-            content: item.label,
+            content: labelContent(item),
             direction: 'top',
           });
         }
@@ -57,8 +64,12 @@ export class MarkerManager {
         title: item.title,
         extData: item,
         label: item.label
-          ? { content: `<span class="amap-marker-label">${item.label}</span>`, direction: 'top' }
+          ? { content: labelContent(item)!, direction: 'top' }
           : undefined,
+      });
+      marker.on('click', () => {
+        const current = marker.getExtData() as MarkerData;
+        current.onSelect?.(current.id);
       });
       this.map.add(marker);
       this.markers.set(item.id, marker);

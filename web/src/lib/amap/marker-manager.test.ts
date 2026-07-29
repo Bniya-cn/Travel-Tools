@@ -4,11 +4,21 @@ import type { AMapMap, AMapNamespace } from './types';
 
 function createFakeAMap() {
   const Marker = vi.fn(function Marker(
-    this: { setMap: ReturnType<typeof vi.fn>; setExtData: ReturnType<typeof vi.fn> },
-    _opts: { position: [number, number]; title: string },
+    this: {
+      setMap: ReturnType<typeof vi.fn>;
+      setExtData: ReturnType<typeof vi.fn>;
+      getExtData: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+      setLabel: ReturnType<typeof vi.fn>;
+    },
+    opts: { position: [number, number]; title: string; extData?: unknown },
   ) {
     this.setMap = vi.fn();
-    this.setExtData = vi.fn();
+    let extData = opts.extData;
+    this.setExtData = vi.fn((value) => { extData = value; });
+    this.getExtData = vi.fn(() => extData);
+    this.on = vi.fn();
+    this.setLabel = vi.fn();
   });
   const map: AMapMap = {
     add: vi.fn(),
@@ -42,5 +52,23 @@ describe('MarkerManager', () => {
 
     mgr.clearMarkers();
     expect(map.remove).toHaveBeenCalled();
+  });
+
+  it('forwards marker click and updates selected marker styling', () => {
+    const { AMap, map, Marker } = createFakeAMap();
+    const onSelect = vi.fn();
+    const mgr = new MarkerManager(AMap, map);
+
+    mgr.updateMarkers([{ id: 'a', position: [108, 34], title: 'A', label: '①', onSelect }]);
+    const marker = Marker.mock.instances[0] as {
+      on: ReturnType<typeof vi.fn>;
+      setLabel: ReturnType<typeof vi.fn>;
+    };
+    const clickHandler = marker.on.mock.calls[0][1] as () => void;
+    clickHandler();
+    expect(onSelect).toHaveBeenCalledWith('a');
+
+    mgr.updateMarkers([{ id: 'a', position: [108, 34], title: 'A', label: '①', selected: true, onSelect }]);
+    expect(marker.setLabel).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('is-selected') }));
   });
 });

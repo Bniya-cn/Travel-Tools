@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { hasAmapJsKeyConfigured, loadAMap } from '../../../lib/amap/loader';
 import { createMap, type MapManager } from '../../../lib/amap/map-manager';
 import { MarkerManager } from '../../../lib/amap/marker-manager';
-import { PolylineManager } from '../../../lib/amap/polyline-manager';
+import { PolylineManager, type PolylineStyle } from '../../../lib/amap/polyline-manager';
 import { isAmapConfigError } from '../../../lib/amap/errors';
 import type { Place } from '../../../types/place';
 import { toLngLat } from '../../../types/place';
@@ -15,13 +15,16 @@ interface Props {
   markers: Place[];
   /** Optional place_id -> display label (①②③) */
   markerLabels?: Record<string, string>;
+  selectedMarkerId?: string | null;
   focus: MapFocus;
   polyline?: LngLatTuple[];
   /** Multi-leg polylines (phase 2+); takes precedence over polyline when non-empty */
   polylines?: LngLatTuple[][];
+  routeStyle?: PolylineStyle;
   className?: string;
   /** 有路线时自动 fitView，二级页建议开启 */
   autoFit?: boolean;
+  onMarkerSelect?: (placeId: string) => void;
 }
 
 /** 等容器具备非零宽高再创建地图，避免灰底无瓦片。 */
@@ -70,11 +73,14 @@ export function AmapMap({
   center,
   markers,
   markerLabels = {},
+  selectedMarkerId = null,
   focus,
   polyline = [],
   polylines,
+  routeStyle,
   className,
   autoFit = false,
+  onMarkerSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -162,19 +168,21 @@ export function AmapMap({
           position: [lng, lat] as [number, number],
           title: p.name,
           label: markerLabels[p.id],
+          selected: selectedMarkerId === p.id,
+          onSelect: onMarkerSelect,
         };
       }),
     );
-  }, [markers, markerLabels, status]);
+  }, [markers, markerLabels, onMarkerSelect, selectedMarkerId, status]);
 
   useEffect(() => {
     if (status !== 'ready' || !polyMgrRef.current) return;
     if (polylines && polylines.length > 0) {
-      polyMgrRef.current.updateSegments(polylines as [number, number][][]);
+      polyMgrRef.current.updateSegments(polylines as [number, number][][], routeStyle);
     } else {
-      polyMgrRef.current.update(polyline as [number, number][]);
+      polyMgrRef.current.update(polyline as [number, number][], routeStyle);
     }
-  }, [polyline, polylines, status]);
+  }, [polyline, polylines, routeStyle, status]);
 
   // 路线/点位更新后：resize + 可选 fitView，避免二级页灰底
   useEffect(() => {
