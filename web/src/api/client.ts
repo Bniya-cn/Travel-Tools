@@ -1,7 +1,15 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import { ApiClientError, type ApiResponse } from '../types/api';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:8000');
+const configuredBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
+const pointsToLocalServer = configuredBaseURL
+  ? /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(configuredBaseURL)
+  : false;
+
+// 生产环境使用同域 Pages Functions，避免本机 .env.local 中的开发地址进入部署产物。
+const baseURL = import.meta.env.PROD
+  ? (pointsToLocalServer ? '' : (configuredBaseURL ?? ''))
+  : (configuredBaseURL ?? 'http://localhost:8000');
 
 export const http: AxiosInstance = axios.create({
   baseURL,
