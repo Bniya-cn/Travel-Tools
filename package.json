@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "npm ci --prefix web --cache /tmp/travel-planner-npm-cache && npm run build --prefix web",
+    "build": "npm ci --cache /tmp/travel-planner-npm-cache && npm ci --prefix web --cache /tmp/travel-planner-npm-cache && npm run build --prefix web",
     "d1:migrate:local": "wrangler d1 migrations apply travel-planner-db --local",
     "pages:dev": "npm run build && wrangler pages dev web/dist --d1=DB=travel-planner-db"
   },
