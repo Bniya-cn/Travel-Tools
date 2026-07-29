@@ -7,6 +7,8 @@ export type AMapMarker = {
   on: (event: string, handler: () => void) => void;
   getExtData: () => unknown;
   setExtData: (data: unknown) => void;
+  setPosition?: (position: LngLatLike) => void;
+  setLabel?: (label: { content: string; direction?: string }) => void;
 };
 
 export type AMapPolyline = {
@@ -45,6 +47,7 @@ export type AMapNamespace = {
     position: LngLatLike;
     title?: string;
     extData?: unknown;
+    label?: { content: string; direction?: string };
   }) => AMapMarker;
   Polyline: new (opts: {
     path: LngLatLike[];

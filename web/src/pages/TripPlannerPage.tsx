@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AmapMap } from '../features/map/components/AmapMap';
 import type { MapFocus } from '../features/map/components/AmapMap';
 import { RouteStepsList } from '../features/routes/components/RouteStepsList';
+import { RouteGenerationRive } from '../components/RouteGenerationRive';
 import { useCityCenter, useCityHints } from '../hooks/useCity';
 import { useCreatePlace, usePlaceSearch } from '../hooks/usePlaces';
 import { useItems } from '../hooks/useItems';
@@ -618,10 +619,11 @@ export function TripPlannerPage() {
               </div>
               <button
                 type="button"
-                className="md-btn md-btn--primary"
+                className="md-btn md-btn--primary planner-ai-button"
                 disabled={!canGenerate || generateRoutes.isPending}
                 onClick={handleGenerateRoutes}
               >
+                <RouteGenerationRive active={generateRoutes.isPending} />
                 {generateRoutes.isPending ? '计算中…' : '生成路线'}
               </button>
               <button

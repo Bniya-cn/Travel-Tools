@@ -1,0 +1,6 @@
+# 仅用于 wrangler pages dev；不要提交真实值。
+AMAP_WEB_SERVICE_KEY=
+AI_API_BASE_URL=
+AI_API_KEY=
+AI_MODEL=
+PREVIEW_TOKEN_SECRET=

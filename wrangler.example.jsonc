@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "travel-planner-web",
+  "compatibility_date": "2026-07-29",
+  "pages_build_output_dir": "./web/dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "travel-planner-db",
+      "database_id": "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+    }
+  ]
+}
