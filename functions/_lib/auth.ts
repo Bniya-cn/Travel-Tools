@@ -13,7 +13,7 @@ type Row = Record<string, unknown>;
 
 const COOKIE_NAME = 'travel_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
-const PASSWORD_ITERATIONS = 210_000;
+const PASSWORD_ITERATIONS = 1_200;
 
 const authInput = z.object({
   account: z.string().trim().min(3).max(80),
@@ -33,55 +33,36 @@ function normalizeAccount(account: string): string {
   return account.trim().toLowerCase();
 }
 
-function encodeBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function decodeBase64(value: string): Uint8Array {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
-}
-
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
-  for (let index = 0; index < a.length; index += 1) diff |= a[index] ^ b[index];
+  for (let index = 0; index < a.length; index += 1) diff |= a.charCodeAt(index) ^ b.charCodeAt(index);
   return diff === 0;
 }
 
-async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
-    key,
-    256,
-  );
-  return new Uint8Array(bits);
+async function iteratedPasswordHash(password: string, salt: string, iterations: number): Promise<string> {
+  let value = `${salt}:${password}`;
+  for (let index = 0; index < iterations; index += 1) value = await digest(value);
+  return value;
 }
 
 async function hashPassword(password: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hash = await pbkdf2(password, salt, PASSWORD_ITERATIONS);
-  return `pbkdf2_sha256$${PASSWORD_ITERATIONS}$${encodeBase64(salt)}$${encodeBase64(hash)}`;
+  const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  const hash = await iteratedPasswordHash(password, salt, PASSWORD_ITERATIONS);
+  return `sha256_iter$${PASSWORD_ITERATIONS}$${salt}$${hash}`;
 }
 
 async function verifyPassword(password: string, stored: unknown): Promise<boolean> {
   if (typeof stored !== 'string') return false;
   const [scheme, iterationsText, saltText, hashText] = stored.split('$');
   const iterations = Number(iterationsText);
-  if (scheme !== 'pbkdf2_sha256' || !Number.isInteger(iterations) || !saltText || !hashText) return false;
-  const expected = decodeBase64(hashText);
-  const actual = await pbkdf2(password, decodeBase64(saltText), iterations);
+  if (scheme !== 'sha256_iter' || !Number.isInteger(iterations) || !saltText || !hashText) return false;
+  const actual = await iteratedPasswordHash(password, saltText, iterations);
+  const expected = hashText;
   return timingSafeEqual(actual, expected);
 }
 
