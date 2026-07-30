@@ -239,56 +239,315 @@
 @keyframes planner-shimmer { to { background-position: -250% 0; } }
 @keyframes planner-petal { to { margin-top: 15px; transform: rotate(115deg); opacity: .35; } }
 
+/* --- 物理拖拽排序与面板重构基础样式 --- */
+.planner-stop-card {
+  position: relative;
+  padding-left: 2.2rem;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.planner-stop-card__drag-handle {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: grab;
+  color: var(--travel-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border-radius: 6px;
+  transition: color 150ms ease, background 150ms ease;
+  touch-action: none; /* 关键：移动端拖动时禁止页面默认滚动手势 */
+  z-index: 2;
+}
+.planner-stop-card__drag-handle:hover {
+  color: var(--travel-pink-600);
+  background: var(--travel-pink-100);
+}
+.planner-stop-card__drag-handle:active {
+  cursor: grabbing;
+  color: var(--travel-pink-500);
+}
+.planner-timeline__entry {
+  list-style: none;
+  will-change: transform;
+}
+.planner-desktop-panels {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.85fr) minmax(360px, 1.15fr);
+  gap: clamp(0.7rem, 1.2vw, 1.1rem);
+  align-items: start;
+}
+.planner-content {
+  display: grid;
+  grid-template-columns: minmax(620px, 2fr) minmax(370px, 1fr);
+  align-items: start;
+  gap: clamp(0.7rem, 1.2vw, 1.1rem);
+}
+
 @media (max-width: 1439px) {
   .planner-workspace { grid-template-columns: 62px minmax(0, 1fr); }
   .planner-sidebar { padding-inline: .45rem; }
   .planner-sidebar__brand { width: 38px; height: 38px; }
-  .planner-content { grid-template-columns: minmax(235px, .78fr) minmax(365px, 1.12fr) minmax(330px, 1fr); }
+  .planner-content { grid-template-columns: minmax(580px, 1.8fr) minmax(320px, 1fr); }
+  .planner-desktop-panels { grid-template-columns: minmax(210px, 0.8fr) minmax(340px, 1.2fr); }
 }
 
 @media (max-width: 1099px) {
-  .planner-content { grid-template-columns: minmax(260px, .9fr) minmax(360px, 1.2fr); }
-  .planner-map-column { grid-column: 1 / -1; grid-template-columns: minmax(0, 1.5fr) minmax(240px, .7fr); }
-  .planner-amap { height: 420px; min-height: 420px; }
-  .planner-panel { min-height: 600px; }
+  .planner-content { grid-template-columns: 1fr; }
+  .planner-desktop-panels { grid-template-columns: minmax(260px, 0.9fr) minmax(360px, 1.2fr); }
+  .planner-map-column { grid-template-columns: 1fr; }
+  .planner-amap { height: 400px; min-height: 400px; }
 }
 
 @media (max-width: 767px) {
-  .planner-workspace { display: block; overflow-x: clip; }
+  .planner-workspace {
+    display: block;
+    overflow: hidden;
+    height: 100dvh;
+    position: relative;
+    background: var(--travel-bg);
+  }
   .planner-workspace::before, .planner-workspace::after { display: none; }
   .planner-sidebar { display: none; }
-  .planner-main { padding: .75rem .75rem calc(6.8rem + env(safe-area-inset-bottom)); }
-  .planner-header { grid-template-columns: 1fr auto; gap: .7rem; padding: .9rem; border-radius: 20px; }
-  .planner-header__trip { gap: .55rem; }
+  
+  .planner-main {
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    position: relative;
+  }
+  
+  /* 移动端顶部 Glassmorphism 悬浮 Header */
+  .planner-header {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 50;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(201, 118, 151, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    padding: 0.65rem 0.85rem;
+    grid-template-columns: 1fr auto;
+    gap: 0.4rem;
+    min-height: auto;
+  }
+  .planner-header__trip { gap: 0.45rem; }
   .planner-back { display: none; }
-  .planner-header h1 { font-size: 1.25rem; }
-  .planner-header p { overflow: hidden; max-width: 210px; text-overflow: ellipsis; white-space: nowrap; }
-  .planner-header__ai { min-width: 84px; padding-inline: .7rem; font-size: .78rem; }
-  .planner-date-tabs { grid-column: 1 / -1; width: 100%; max-width: none; }
-  .planner-date-tabs button { min-width: 62px; }
-  .planner-search { grid-template-columns: auto minmax(0, 1fr); margin-top: .8rem; }
-  .planner-search__clear, .planner-search__status { grid-column: 2; justify-self: end; }
-  .planner-suggestions { margin-bottom: .7rem; }
-  .planner-mobile-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin-bottom: .75rem; padding: .35rem; border: 1px solid var(--travel-border); border-radius: 16px; background: rgb(255 255 255 / 72%); }
-  .planner-mobile-tabs button { width: 100%; min-height: 42px; }
-  .planner-content { display: block; }
-  .planner-content > * { display: none; }
-  .planner-workspace[data-mobile-tab='places'] .planner-library, .planner-workspace[data-mobile-tab='itinerary'] .planner-itinerary, .planner-workspace[data-mobile-tab='map'] .planner-map-column { display: block; }
-  .planner-panel { min-height: 0; padding: .85rem; border-radius: 20px; }
-  .planner-map-column { display: none; }
-  .planner-amap { height: min(52dvh, 430px); min-height: 300px; }
-  .planner-selected-detail { margin-top: .7rem; border-radius: 20px; }
-  .planner-timeline { padding-left: 3rem; }
+  .planner-header h1 { font-size: 1.15rem; }
+  .planner-header p {
+    overflow: hidden;
+    max-width: 160px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+  }
+  .planner-header__ai {
+    min-width: 76px;
+    min-height: 34px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.74rem;
+  }
+  .planner-date-tabs {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    margin-top: 0.2rem;
+    gap: 0.3rem;
+  }
+  .planner-date-tabs button {
+    min-width: 52px;
+    min-height: 32px;
+    font-size: 0.76rem;
+  }
+
+  /* 移动端下的地图全屏底座化 */
+  .planner-content {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .planner-map-column {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: block;
+  }
+  .planner-map-card {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+    backdrop-filter: none;
+  }
+  .planner-map-card__heading { display: none; }
+  .planner-amap {
+    width: 100%;
+    height: 100% !important;
+    min-height: 100% !important;
+    border: 0;
+    border-radius: 0;
+  }
+  
+  /* 当前选中地点详情浮动卡片 */
+  .planner-selected-detail {
+    position: fixed;
+    bottom: 96px; /* 避开折叠状态下的抽屉 */
+    left: 10px;
+    right: 10px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(14px);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(201, 118, 151, 0.16);
+    border: 1px solid var(--travel-border-strong);
+    min-height: auto;
+    padding: 0.8rem;
+  }
+  .planner-selected-detail__glyph { width: 38px; height: 38px; border-radius: 12px; }
+  .planner-selected-detail h2 { font-size: 0.9rem; }
+  .planner-selected-detail p { font-size: 0.74rem; }
+
+  /* 移动端手势抽屉容器 */
+  .planner-mobile-drawer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(100vh - 80px);
+    z-index: 100;
+    background: rgba(255, 250, 252, 0.88);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--travel-border-strong);
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 40px rgba(201, 118, 151, 0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    touch-action: none; /* 让顶端拖拽区截获手势 */
+  }
+  .planner-drawer-header {
+    flex: 0 0 auto;
+    padding: 0.6rem 1rem 0.8rem;
+    border-bottom: 1px solid var(--travel-border);
+    background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.7));
+    cursor: grab;
+    touch-action: none;
+  }
+  .planner-drawer-handle {
+    width: 36px;
+    height: 5px;
+    border-radius: 99px;
+    background: var(--travel-pink-400);
+    margin: 0 auto 0.6rem;
+    opacity: 0.6;
+  }
+  .planner-drawer-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .planner-drawer-tabs button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--travel-text-secondary);
+    font-size: 0.82rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 180ms ease;
+    border: 1px solid var(--travel-border);
+  }
+  .planner-drawer-tabs button.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--travel-pink-400), var(--travel-pink-600));
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(233, 77, 128, 0.22);
+  }
+  .planner-drawer-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem;
+    touch-action: pan-y; /* 内部可以垂直滚动 */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 地点搜索与城市推荐内嵌到抽屉的样式 */
+  .planner-mobile-drawer .planner-search {
+    margin: 0 0 0.8rem;
+    background: #fff;
+    border: 1px solid var(--travel-border-strong);
+    box-shadow: var(--travel-shadow-sm);
+  }
+  .planner-mobile-drawer .planner-suggestions {
+    margin: -0.2rem 0 1rem;
+    padding: 0 0 0.4rem;
+    border-bottom: 1px dashed var(--travel-border);
+    overflow-x: auto;
+    white-space: nowrap;
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .planner-mobile-drawer .planner-suggestions::-webkit-scrollbar { display: none; }
+  
+  /* 屏蔽抽屉内面板的冗余背景 */
+  .planner-mobile-drawer .planner-panel {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    min-height: auto;
+    backdrop-filter: none;
+  }
+  .planner-mobile-drawer .planner-panel__heading {
+    margin-bottom: 0.75rem;
+  }
+
+  .planner-timeline { padding-left: 2.8rem; }
   .planner-timeline::before { left: 1.35rem; }
   .planner-timeline__entry::before { left: -1.86rem; }
-  .planner-timeline__time { right: calc(100% + .45rem); font-size: .68rem; }
+  .planner-timeline__time { right: calc(100% + 0.45rem); font-size: 0.68rem; }
   .planner-stop-card__fields { grid-template-columns: 1fr 1fr; }
   .planner-stop-card__end { grid-column: 1 / -1; padding-bottom: 0; }
-  .planner-route-controls { display: none; }
-  .planner-mobile-actions { position: fixed; z-index: 15; right: .75rem; bottom: calc(.7rem + env(safe-area-inset-bottom)); left: .75rem; display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; padding: .55rem; border: 1px solid var(--travel-border); border-radius: 20px; background: rgb(255 255 255 / 92%); box-shadow: var(--travel-shadow-md); backdrop-filter: blur(14px); }
-  .planner-mobile-actions button { min-width: 0; padding-inline: .4rem; }
+  .planner-route-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px dashed var(--travel-border);
+  }
+  .planner-route-mode {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .planner-route-mode button {
+    width: 100%;
+  }
+  .planner-ai-button {
+    width: 100%;
+  }
+
+  /* 隐藏多余及已迁移元素 */
+  .planner-mobile-actions { display: none; }
   .planner-saved-link { display: none; }
-  .planner-toast { top: .75rem; right: .75rem; left: .75rem; max-width: none; }
+  .planner-toast { top: 96px; right: 10px; left: 10px; max-width: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

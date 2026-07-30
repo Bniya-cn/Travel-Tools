@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Compass, ListTodo } from 'lucide-react';
 import { ItineraryTimeline } from '../components/trip-planner/ItineraryTimeline';
 import { PlannerMapPanel } from '../components/trip-planner/PlannerMapPanel';
 import { PlaceLibrary } from '../components/trip-planner/PlaceLibrary';
@@ -37,8 +39,6 @@ function isValidHhMm(value: string | null | undefined): value is string {
   return Boolean(value && /^\d{2}:\d{2}$/.test(value));
 }
 
-type MobileTab = 'itinerary' | 'places' | 'map';
-
 export function TripPlannerPage() {
   const { tripId } = useParams<{ tripId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,8 +67,20 @@ export function TripPlannerPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<MapFocus>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('itinerary');
   const syncedDraftIdRef = useRef<string | null>(null);
+
+  // 移动端相关状态
+  const [isMobile, setIsMobile] = useState(false);
+  const [drawerState, setDrawerState] = useState<'collapsed' | 'half' | 'expanded'>('half');
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'places'>('itinerary');
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    setIsMobile(media.matches);
+    const listener = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
 
   const search = usePlaceSearch(debounced, trip?.city_name, debounced.length > 0);
   const pool = useMemo(() => (tripPlaces ?? []).filter((item) => item.status !== 'removed' && item.place), [tripPlaces]);
@@ -111,7 +123,6 @@ export function TripPlannerPage() {
     const nextDraftId = draft?.id ?? null;
     if (syncedDraftIdRef.current === nextDraftId) return;
     syncedDraftIdRef.current = nextDraftId;
-    // 同一草稿保存后会重新请求，不能覆盖刚生成的路线预览。
     setRoutePreview([]);
     setStops(draft?.stops ?? []);
   }, [draft]);
@@ -129,7 +140,11 @@ export function TripPlannerPage() {
     if (!place) return;
     setSelectedPlaceId(placeId);
     setMapFocus(toLngLat(place));
-  }, [mapPlaces]);
+    // 选中 Marker 时，如果是移动端折叠状态，则拉起到半开档以便展示详情卡片
+    if (isMobile && drawerState === 'collapsed') {
+      setDrawerState('half');
+    }
+  }, [mapPlaces, isMobile, drawerState]);
 
   function selectDate(date: string) {
     setSearchParams({ date });
@@ -162,18 +177,14 @@ export function TripPlannerPage() {
     const start = stops.length ? null : '09:00';
     await persistStops([...stops, { place_id: placeId, title, start_time: start, end_time: start ? addMinutes(start, 90) : null, order: stops.length + 1, preferred_duration_minutes: 90 }]);
     selectPlace(placeId);
-    setMobileTab('itinerary');
+    if (isMobile) {
+      setActiveTab('itinerary');
+      setDrawerState('half');
+    }
   }
 
   async function removeFromToday(placeId: string) { await persistStops(stops.filter((stop) => stop.place_id !== placeId)); }
-  async function moveStop(placeId: string, direction: -1 | 1) {
-    const index = stops.findIndex((stop) => stop.place_id === placeId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= stops.length) return;
-    const next = stops.slice();
-    [next[index], next[target]] = [next[target], next[index]];
-    await persistStops(next);
-  }
+
   function updateStopTimeLocal(placeId: string, start: string, duration: number) {
     const safeDuration = Math.min(Math.max(duration || 90, 15), 480);
     const startTime = isValidHhMm(start) ? start : null;
@@ -215,33 +226,262 @@ export function TripPlannerPage() {
     catch (error) { showError('移除地点', error); }
   }
 
+  const drawerVariants = {
+    collapsed: { y: 'calc(100vh - 84px)' },
+    half: { y: '50vh' },
+    expanded: { y: '80px' }
+  };
+
+  const handleDragEnd = (_event: any, info: any) => {
+    const height = window.innerHeight;
+    const draggedY = info.point.y;
+    const velocityY = info.velocity.y;
+    const yRatio = draggedY / height;
+
+    if (velocityY > 300) {
+      if (drawerState === 'expanded') setDrawerState('half');
+      else setDrawerState('collapsed');
+    } else if (velocityY < -300) {
+      if (drawerState === 'collapsed') setDrawerState('half');
+      else setDrawerState('expanded');
+    } else {
+      if (yRatio < 0.35) {
+        setDrawerState('expanded');
+      } else if (yRatio < 0.72) {
+        setDrawerState('half');
+      } else {
+        setDrawerState('collapsed');
+      }
+    }
+  };
+
   if (tripLoading) return <div className="md-empty page-pad">加载旅行…</div>;
   if (tripError || !trip || !tripId) return <div className="page-pad"><div className="md-banner md-banner--error">旅行不存在或加载失败</div><Link to="/">返回列表</Link></div>;
 
   const savedHref = selectedDate ? `/trips/${tripId}/saved?date=${encodeURIComponent(selectedDate)}` : `/trips/${tripId}/saved`;
+
   return (
-    <div className="planner-workspace" data-mobile-tab={mobileTab}>
-      <PlannerSidebar savedHref={savedHref} />
+    <div className="planner-workspace" data-mobile-mode={isMobile ? 'true' : 'false'}>
+      {!isMobile && <PlannerSidebar savedHref={savedHref} />}
       <main className="planner-main">
         <header className="planner-header">
-          <div className="planner-header__trip"><Link to="/" className="planner-back">返回旅行</Link><div><span className="planner-kicker">旅行日程</span><h1>{trip.name}</h1><p>{trip.city_name} · {trip.start_date} - {trip.end_date} · {dates.length} 天</p></div></div>
-          <div className="planner-date-tabs" aria-label="选择日期">{dates.map((date) => <button key={date} type="button" className={date === selectedDate ? 'is-active' : ''} onClick={() => selectDate(date)} aria-pressed={date === selectedDate}>{date.slice(5)}</button>)}</div>
-          <button type="button" className="planner-primary-action planner-header__ai" onClick={handleAiPlan} disabled={aiPlan.isPending || pool.length < 2}>{aiPlan.isPending ? '正在规划…' : 'AI 规划'}</button>
+          <div className="planner-header__trip">
+            <Link to="/" className="planner-back">返回旅行</Link>
+            <div>
+              <span className="planner-kicker">旅行日程</span>
+              <h1>{trip.name}</h1>
+              <p>{trip.city_name} · {trip.start_date} - {trip.end_date} · {dates.length} 天</p>
+            </div>
+          </div>
+          <div className="planner-date-tabs" aria-label="选择日期">
+            {dates.map((date) => (
+              <button
+                key={date}
+                type="button"
+                className={date === selectedDate ? 'is-active' : ''}
+                onClick={() => selectDate(date)}
+                aria-pressed={date === selectedDate}
+              >
+                {date.slice(5)}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="planner-primary-action planner-header__ai"
+            onClick={handleAiPlan}
+            disabled={aiPlan.isPending || pool.length < 2}
+          >
+            {aiPlan.isPending ? '正在规划…' : 'AI 规划'}
+          </button>
         </header>
 
-        <section className="planner-search" aria-label="搜索地点"><label htmlFor="planner-place-search">搜索并添加地点</label><input id="planner-place-search" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={`搜索${trip.city_name}的火车站、机场或景点`} autoComplete="off" />{keyword && <button type="button" className="planner-search__clear" onClick={() => setKeyword('')} aria-label="清空搜索">清空</button>}{search.isFetching && <span className="planner-search__status">搜索中…</span>}{search.isError && <p className="planner-search__empty" role="alert">暂时无法获取地点，请稍后重试。</p>}{debounced && !search.isFetching && !search.isError && search.data?.length === 0 && <p className="planner-search__empty">暂时没有匹配地点，换一个关键词试试。</p>}{debounced && search.data && search.data.length > 0 && <ul className="planner-search__results">{search.data.map((hit) => <li key={`${hit.amap_poi_id ?? hit.name}-${hit.lng}`}><button type="button" onClick={() => handleAddSearchHit(hit)}><strong>{hit.name}</strong><span>{hit.address || hit.district || '点击加入地点库'}</span></button></li>)}</ul>}</section>
+        {!isMobile && (
+          <>
+            <section className="planner-search" aria-label="搜索地点">
+              <label htmlFor="planner-place-search">搜索并添加地点</label>
+              <input
+                id="planner-place-search"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder={`搜索${trip.city_name}的火车站、机场或景点`}
+                autoComplete="off"
+              />
+              {keyword && <button type="button" className="planner-search__clear" onClick={() => setKeyword('')} aria-label="清空搜索">清空</button>}
+              {search.isFetching && <span className="planner-search__status">搜索中…</span>}
+              {search.isError && <p className="planner-search__empty" role="alert">暂时无法获取地点，请稍后重试。</p>}
+              {debounced && !search.isFetching && !search.isError && search.data?.length === 0 && <p className="planner-search__empty">暂时没有匹配地点，换一个关键词试试。</p>}
+              {debounced && search.data && search.data.length > 0 && (
+                <ul className="planner-search__results">
+                  {search.data.map((hit) => (
+                    <li key={`${hit.amap_poi_id ?? hit.name}-${hit.lng}`}>
+                      <button type="button" onClick={() => handleAddSearchHit(hit)}>
+                        <strong>{hit.name}</strong>
+                        <span>{hit.address || hit.district || '点击加入地点库'}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        {!hintsLoading && cityHints?.places?.length ? <div className="planner-suggestions"><span>城市推荐</span>{cityHints.places.slice(0, 4).map((hit) => <button key={hit.amap_poi_id ?? hit.name} type="button" onClick={() => handleAddSearchHit(hit)} disabled={createPlace.isPending}>{hit.name}</button>)}</div> : null}
-
-        <nav className="planner-mobile-tabs" aria-label="规划视图"><button type="button" className={mobileTab === 'itinerary' ? 'is-active' : ''} onClick={() => setMobileTab('itinerary')}>行程</button><button type="button" className={mobileTab === 'places' ? 'is-active' : ''} onClick={() => setMobileTab('places')}>地点</button><button type="button" className={mobileTab === 'map' ? 'is-active' : ''} onClick={() => setMobileTab('map')}>地图</button></nav>
+            {!hintsLoading && cityHints?.places?.length ? (
+              <div className="planner-suggestions">
+                <span>城市推荐</span>
+                {cityHints.places.slice(0, 4).map((hit) => (
+                  <button
+                    key={hit.amap_poi_id ?? hit.name}
+                    type="button"
+                    onClick={() => handleAddSearchHit(hit)}
+                    disabled={createPlace.isPending}
+                  >
+                    {hit.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
 
         <div className="planner-content">
-          <PlaceLibrary places={pool} selectedPlaceId={selectedPlaceId} isLoading={placesLoading} isAdding={createPlace.isPending} onAdd={addToToday} onRemove={softRemove} onSelect={selectPlace} isInToday={isInToday} />
-          <ItineraryTimeline stops={stops} places={mapPlaces} segments={routePreview} routeType={routeType} isGenerating={generateRoutes.isPending} isSaving={confirmDraft.isPending} canGenerate={canGenerate} selectedPlaceId={selectedPlaceId} onSelect={selectPlace} onRouteType={setRouteType} onTimeChange={updateStopTimeLocal} onTimeCommit={commitStopTime} onMove={moveStop} onRemove={removeFromToday} onGenerate={handleGenerateRoutes} onConfirm={handleConfirm} />
-          <PlannerMapPanel center={mapCenter} places={mapPlaces} markerLabels={markerLabels} selectedPlaceId={selectedPlaceId} focus={mapFocus} polylines={polylines} routeType={routeType} onSelect={selectPlace} />
+          <motion.div
+            className={isMobile ? "planner-mobile-drawer" : "planner-desktop-panels"}
+            drag={isMobile ? "y" : false}
+            dragConstraints={isMobile ? { top: 0, bottom: window.innerHeight } : undefined}
+            dragElastic={0.12}
+            dragMomentum={false}
+            animate={isMobile ? drawerState : { y: 0 }}
+            variants={isMobile ? drawerVariants : undefined}
+            onDragEnd={isMobile ? handleDragEnd : undefined}
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+          >
+            {isMobile && (
+              <div className="planner-drawer-header">
+                <div className="planner-drawer-handle" />
+                <div className="planner-drawer-tabs">
+                  <button
+                    type="button"
+                    className={activeTab === 'itinerary' ? 'is-active' : ''}
+                    onClick={() => {
+                      setActiveTab('itinerary');
+                      if (drawerState === 'collapsed') setDrawerState('half');
+                    }}
+                  >
+                    <ListTodo size={15} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    今日行程
+                  </button>
+                  <button
+                    type="button"
+                    className={activeTab === 'places' ? 'is-active' : ''}
+                    onClick={() => {
+                      setActiveTab('places');
+                      if (drawerState === 'collapsed') setDrawerState('half');
+                    }}
+                  >
+                    <Compass size={15} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    地点库
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="planner-drawer-body">
+              {isMobile && activeTab === 'places' && (
+                <>
+                  <section className="planner-search" aria-label="搜索地点">
+                    <label htmlFor="planner-place-search-mobile">搜索并添加地点</label>
+                    <input
+                      id="planner-place-search-mobile"
+                      value={keyword}
+                      onChange={(event) => setKeyword(event.target.value)}
+                      placeholder={`搜索${trip.city_name}的火车站、机场或景点`}
+                      autoComplete="off"
+                    />
+                    {keyword && <button type="button" className="planner-search__clear" onClick={() => setKeyword('')} aria-label="清空搜索">清空</button>}
+                    {search.isFetching && <span className="planner-search__status">搜索中…</span>}
+                    {search.isError && <p className="planner-search__empty" role="alert">暂时无法获取地点，请稍后重试。</p>}
+                    {debounced && !search.isFetching && !search.isError && search.data?.length === 0 && <p className="planner-search__empty">暂时没有匹配地点，换一个关键词试试。</p>}
+                    {debounced && search.data && search.data.length > 0 && (
+                      <ul className="planner-search__results">
+                        {search.data.map((hit) => (
+                          <li key={`${hit.amap_poi_id ?? hit.name}-${hit.lng}`}>
+                            <button type="button" onClick={() => handleAddSearchHit(hit)}>
+                              <strong>{hit.name}</strong>
+                              <span>{hit.address || hit.district || '点击加入地点库'}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  {!hintsLoading && cityHints?.places?.length ? (
+                    <div className="planner-suggestions">
+                      <span>城市推荐</span>
+                      {cityHints.places.slice(0, 4).map((hit) => (
+                        <button
+                          key={hit.amap_poi_id ?? hit.name}
+                          type="button"
+                          onClick={() => handleAddSearchHit(hit)}
+                          disabled={createPlace.isPending}
+                        >
+                          {hit.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {(!isMobile || activeTab === 'places') && (
+                <PlaceLibrary
+                  places={pool}
+                  selectedPlaceId={selectedPlaceId}
+                  isLoading={placesLoading}
+                  isAdding={createPlace.isPending}
+                  onAdd={addToToday}
+                  onRemove={softRemove}
+                  onSelect={selectPlace}
+                  isInToday={isInToday}
+                />
+              )}
+              {(!isMobile || activeTab === 'itinerary') && (
+                <ItineraryTimeline
+                  stops={stops}
+                  places={mapPlaces}
+                  segments={routePreview}
+                  routeType={routeType}
+                  isGenerating={generateRoutes.isPending}
+                  isSaving={confirmDraft.isPending}
+                  canGenerate={canGenerate}
+                  selectedPlaceId={selectedPlaceId}
+                  onSelect={selectPlace}
+                  onRouteType={setRouteType}
+                  onTimeChange={updateStopTimeLocal}
+                  onTimeCommit={commitStopTime}
+                  onReorder={persistStops}
+                  onRemove={removeFromToday}
+                  onGenerate={handleGenerateRoutes}
+                  onConfirm={handleConfirm}
+                />
+              )}
+            </div>
+          </motion.div>
+
+          <PlannerMapPanel
+            center={mapCenter}
+            places={mapPlaces}
+            markerLabels={markerLabels}
+            selectedPlaceId={selectedPlaceId}
+            focus={mapFocus}
+            polylines={polylines}
+            routeType={routeType}
+            onSelect={selectPlace}
+          />
         </div>
-        <footer className="planner-mobile-actions"><button type="button" className="planner-primary-action" disabled={!canGenerate || generateRoutes.isPending} onClick={handleGenerateRoutes}>{generateRoutes.isPending ? '计算中…' : '生成路线'}</button><button type="button" className="planner-secondary-action" disabled={!routePreview.length || confirmDraft.isPending} onClick={handleConfirm}>保存行程</button></footer>
-        {savedItems && savedItems.length > 0 && <Link className="planner-saved-link" to={savedHref}>查看已保存行程（{savedItems.length} 项）</Link>}
+        {savedItems && savedItems.length > 0 && !isMobile && (
+          <Link className="planner-saved-link" to={savedHref}>
+            查看已保存行程（{savedItems.length} 项）
+          </Link>
+        )}
       </main>
       <PlannerToast message={toast} onClose={() => setToast(null)} />
     </div>
