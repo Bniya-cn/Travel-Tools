@@ -24,6 +24,7 @@ type Props = {
   onRemove: (placeId: string) => void;
   onGenerate: () => void;
   onConfirm: () => void;
+  showRouteControls?: boolean;
 };
 
 interface EntryProps {
@@ -142,14 +143,14 @@ export function ItineraryTimeline(props: Props) {
           );
         })}
       </Reorder.Group>
-      <div className="planner-route-controls">
+      {props.showRouteControls !== false && <div className="planner-route-controls">
         <div className="planner-route-mode" aria-label="路线类型">
           <button type="button" className={props.routeType === 'transit' ? 'is-active' : ''} onClick={() => props.onRouteType('transit')}>公交 / 地铁</button>
           <button type="button" className={props.routeType === 'walking' ? 'is-active' : ''} onClick={() => props.onRouteType('walking')}>步行</button>
         </div>
         <button type="button" className="planner-primary-action planner-ai-button" disabled={!props.canGenerate || props.isGenerating} onClick={props.onGenerate}><RouteGenerationRive active={props.isGenerating} />{props.isGenerating ? '正在计算…' : '生成路线'}</button>
         <button type="button" className="planner-secondary-action" disabled={!props.segments.length || props.isSaving} onClick={props.onConfirm}>{props.isSaving ? '保存中…' : '保存行程'}</button>
-      </div>
+      </div>}
     </section>
   );
 }

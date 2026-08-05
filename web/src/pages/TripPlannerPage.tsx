@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Compass, ListTodo } from 'lucide-react';
+import { Compass, ListTodo, Map as MapIcon } from 'lucide-react';
+import { RouteGenerationRive } from '../components/RouteGenerationRive';
 import { ItineraryTimeline } from '../components/trip-planner/ItineraryTimeline';
 import { PlannerMapPanel } from '../components/trip-planner/PlannerMapPanel';
 import { PlaceLibrary } from '../components/trip-planner/PlaceLibrary';
@@ -72,7 +73,7 @@ export function TripPlannerPage() {
   // 移动端相关状态
   const [isMobile, setIsMobile] = useState(false);
   const [drawerState, setDrawerState] = useState<'collapsed' | 'half' | 'expanded'>('half');
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'places'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'places' | 'map'>('itinerary');
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -227,16 +228,15 @@ export function TripPlannerPage() {
   }
 
   const drawerVariants = {
-    collapsed: { y: 'calc(100vh - 84px)' },
-    half: { y: '50vh' },
-    expanded: { y: '80px' }
+    // 使用抽屉自身高度计算折叠位置，避免小屏设备只剩几像素无法重新打开。
+    collapsed: { y: 'calc(100% - 82px)' },
+    half: { y: '42%' },
+    expanded: { y: 0 }
   };
 
   const handleDragEnd = (_event: any, info: any) => {
-    const height = window.innerHeight;
-    const draggedY = info.point.y;
     const velocityY = info.velocity.y;
-    const yRatio = draggedY / height;
+    const offsetY = info.offset.y;
 
     if (velocityY > 300) {
       if (drawerState === 'expanded') setDrawerState('half');
@@ -244,14 +244,12 @@ export function TripPlannerPage() {
     } else if (velocityY < -300) {
       if (drawerState === 'collapsed') setDrawerState('half');
       else setDrawerState('expanded');
+    } else if (offsetY < -72) {
+      setDrawerState('expanded');
+    } else if (offsetY > 72) {
+      setDrawerState('collapsed');
     } else {
-      if (yRatio < 0.35) {
-        setDrawerState('expanded');
-      } else if (yRatio < 0.72) {
-        setDrawerState('half');
-      } else {
-        setDrawerState('collapsed');
-      }
+      setDrawerState('half');
     }
   };
 
@@ -381,6 +379,17 @@ export function TripPlannerPage() {
                     <Compass size={15} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
                     地点库
                   </button>
+                  <button
+                    type="button"
+                    className={activeTab === 'map' ? 'is-active' : ''}
+                    onClick={() => {
+                      setActiveTab('map');
+                      setDrawerState('collapsed');
+                    }}
+                  >
+                    <MapIcon size={15} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    地图
+                  </button>
                 </div>
               </div>
             )}
@@ -461,9 +470,27 @@ export function TripPlannerPage() {
                   onRemove={removeFromToday}
                   onGenerate={handleGenerateRoutes}
                   onConfirm={handleConfirm}
+                  showRouteControls={!isMobile}
                 />
               )}
             </div>
+            {isMobile && activeTab !== 'map' && (
+              <div className="planner-mobile-actions" aria-label="行程操作">
+                <div className="planner-route-mode" aria-label="路线类型">
+                  <button type="button" className={routeType === 'transit' ? 'is-active' : ''} onClick={() => setRouteType('transit')}>公交 / 地铁</button>
+                  <button type="button" className={routeType === 'walking' ? 'is-active' : ''} onClick={() => setRouteType('walking')}>步行</button>
+                </div>
+                <div className="planner-mobile-actions__buttons">
+                  <button type="button" className="planner-primary-action" disabled={!canGenerate || generateRoutes.isPending} onClick={handleGenerateRoutes}>
+                    <RouteGenerationRive active={generateRoutes.isPending} />
+                    {generateRoutes.isPending ? '正在计算…' : '生成路线'}
+                  </button>
+                  <button type="button" className="planner-secondary-action" disabled={!routePreview.length || confirmDraft.isPending} onClick={handleConfirm}>
+                    {confirmDraft.isPending ? '保存中…' : '保存行程'}
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
 
           <PlannerMapPanel

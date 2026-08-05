@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AmapMap, type MapFocus } from '../../features/map/components/AmapMap';
 import { PlaceTypeGlyph } from './PlaceTypeGlyph';
 import { getPlacePresentation } from './plannerUtils';
@@ -34,4 +35,3 @@ export function PlannerMapPanel({ center, places, markerLabels, selectedPlaceId,
     </section>
   );
 }
-import { useMemo } from 'react';
